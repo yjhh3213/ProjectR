@@ -55,7 +55,13 @@ public class StartGridManager : MonoBehaviour
 
                 // 여기서 PlayerInput을 복제본에 동적으로 추가해줍니다!
                 spawnedCar.AddComponent<PlayerInput>();
+                ArcadeCarController AC = spawnedCar.GetComponent<ArcadeCarController>();
 
+                SpeedometerUI ui = FindObjectOfType<SpeedometerUI>();
+                if (ui != null)
+                {
+                    ui.SetupUI(AC);
+                }
                 if (controller != null) controller.isAI = false; // 뇌 제어권: 플레이어
                 if (cameraFollowScript != null)
                 {
