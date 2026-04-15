@@ -25,6 +25,10 @@ public class ArcadeCarController : MonoBehaviour
     public float driftBoostForce = 15f;    // 3.15.3 탈출 부스터 힘 (속도 10 정도 상승)
     public TrailRenderer[] skidMarks;      // 3.15.2 뒷바퀴 스키드마크 연결용
 
+    [Header("안정성 세팅 (이륙 방지)")]
+    public float downforce = 50f; // 속도가 빠를수록 차를 바닥으로 짓누르는 힘
+    public Vector3 centerOfMassOffset = new Vector3(0, -0.5f, 0); // 무게중심을 바닥(-0.5)으로 끌어내림
+
     // 외부(PlayerInput이나 AIInput)에서 값을 넣어줄 수 있도록 public으로 변경합니다.
     [HideInInspector] public float verticalInput;
     [HideInInspector] public float horizontalInput;
@@ -39,6 +43,10 @@ public class ArcadeCarController : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+
+        // 무게중심을 차체 바닥으로 강제로 끌어내립니다 (오뚝이 효과)
+        rb.centerOfMass = centerOfMassOffset;
+
         currentGrip = normalGrip; // 게임 시작 시 평소 접지력으로 초기화
 
         // 스키드마크 초기화 (처음엔 안 그려지게)
@@ -61,6 +69,7 @@ public class ArcadeCarController : MonoBehaviour
         HandleMotor();
         HandleSteering();
         ApplyLateralFriction(); // 3.15.4 횡방향 마찰력은 여기서 독립적으로 실행!
+        ApplyDownforce();       // 차가 날아가지 않도록 바닥으로 짓누름!
     }
 
     // PlayerInput에서 호출할 수 있도록 부스트 함수를 public으로 바꿔주세요.
@@ -204,5 +213,16 @@ public class ArcadeCarController : MonoBehaviour
             frontLeftWheel.localEulerAngles = new Vector3(frontLeftWheel.localEulerAngles.x, steerAngle, 0);
             frontRightWheel.localEulerAngles = new Vector3(frontRightWheel.localEulerAngles.x, steerAngle, 0);
         }
+    }
+
+    // 맨 아래쪽에 새 함수 추가
+    private void ApplyDownforce()
+    {
+        // 현재 달리고 있는 속도
+        float currentSpeed = rb.velocity.magnitude;
+
+        // 차체의 '아랫방향(-transform.up)'으로, 속도에 비례해서 강하게 짓누릅니다.
+        // 속도가 빠를수록 차가 땅에 찰싹 달라붙게 됩니다.
+        rb.AddForce(-transform.up * downforce * currentSpeed, ForceMode.Force);
     }
 }

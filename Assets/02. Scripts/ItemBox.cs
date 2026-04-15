@@ -24,9 +24,14 @@ public class ItemBox : MonoBehaviour
         Debug.Log("어라? 무언가 닿았습니다! 이름: " + other.gameObject.name);
 
         // 2. 태그가 일치하는지 확인합니다.
-        if (other.CompareTag("Player"))
-        {
-            Debug.Log("축하합니다! 'Player' 태그를 가진 물체를 인식했습니다.");
+        ItemManager im = other.GetComponent<ItemManager>(); //
+        if (isActive && im != null)
+        { // 아이템 매니저가 있다면 플레이어든 AI든 OK!
+            if (!im.isRolling && im.inventoryItem == null)
+            {
+                im.StartGetItemRoutine(); //
+                StartCoroutine(RespawnRoutine()); //
+            }
         }
         else
         {
