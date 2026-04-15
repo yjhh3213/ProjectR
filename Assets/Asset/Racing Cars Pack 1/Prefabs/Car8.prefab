@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 400000}
   - component: {fileID: -7338267643231092621}
   - component: {fileID: 665932664977931214}
-  - component: {fileID: 6167689361629478217}
   - component: {fileID: -2668406815207615932}
   m_Layer: 0
   m_Name: Car8
@@ -48,9 +47,9 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 100000}
   serializedVersion: 2
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_Mass: 1000
+  m_Drag: 2.5
+  m_AngularDrag: 5
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
@@ -69,18 +68,6 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 2.8, y: 2.5, z: 7.6}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &6167689361629478217
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 100000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fef6dd543bcd5234285bf74a4779c5c5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &-2668406815207615932
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93,17 +80,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 454ffbaf7aaf69b4aabc91afb1eebbdc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 50
-  turnSpeed: 100
-  driftAccelPenalty: 0.4
-  driftBoostForce: 15
-  skidMarks:
-  - {fileID: 1773148336016837262}
-  - {fileID: 2471392633458811337}
   frontLeftWheel: {fileID: 400006}
   frontRightWheel: {fileID: 400010}
   rearLeftWheel: {fileID: 400004}
   rearRightWheel: {fileID: 400008}
+  maxSpeedKmh: 311
+  motorForce: 500
+  brakeForce: 600
+  reverseForce: 250
+  turnSpeed: 80
+  moveSpeed: 50
+  driftAccelPenalty: 0.7
+  normalGrip: 0.98
+  driftGrip: 0.4
+  driftBoostForce: 10
+  skidMarks:
+  - {fileID: 1773148336016837262}
+  - {fileID: 2471392633458811337}
+  verticalInput: 0
+  horizontalInput: 0
+  isDrifting: 0
+  currentGrip: 0
   moveInput: 0
   turnInput: 0
 --- !u!1 &100002

@@ -1,48 +1,63 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Windows;
 
 public class RaceManager : MonoBehaviour
 {
-    [Header("트랙에 배치된 4대의 차량")]
-    // 0: GTR, 1: 카마로, 2: 알파 로메오, 3: i20N 순서대로 인스펙터에서 넣습니다.
-    public GameObject[] raceCars;
+    [Header("차량 프리팹 (0:car1, 1:car2, 2:car4, 3:car8)")]
+    public GameObject[] carPrefabs; // 0:car1, 1:car2, 2:car4, 3:car8
 
-    [Header("AI가 따라갈 첫 번째 웨이포인트")]
-    public Transform firstWaypoint;
+    [Header("카메라 세팅")]
+    public CameraFollow cameraFollowScript; // 메인 카메라의 스크립트를 연결
+
+    [Header("스폰 위치 세팅 (7.4)")]
+    public Vector3 playerSpawnPos = new Vector3(0f, 1.3f, -40f);
+    public Vector3[] aiSpawnPositions; // 나머지 3대 AI의 스폰 위치 설정
 
     void Start()
     {
-        AssignBrainsToCars();
-    }
-
-    private void AssignBrainsToCars()
-    {
+        // 7.1: 로비에서 저장한 플레이어 차량 인덱스 불러오기 (기본값 0)
         int playerCarIndex = PlayerPrefs.GetInt("SelectedCarIndex", 0);
 
-        for (int i = 0; i < raceCars.Length; i++)
+        SpawnVehicles(playerCarIndex);
+    }
+
+    private void SpawnVehicles(int playerIndex)
+    {
+        int aiSpawnIndex = 0;
+
+        if (aiSpawnPositions.Length < 3)
         {
-            GameObject currentCar = raceCars[i];
+            Debug.LogWarning("경고: AI Spawn Positions 배열의 크기가 3보다 작습니다!");
+        }
 
-            if (i == playerCarIndex)
+        for (int i = 0; i < carPrefabs.Length; i++)
+        {
+            if (i == playerIndex)
             {
-                // 1. 플레이어 조작 할당
-                currentCar.AddComponent<PlayerInput>();
-                Debug.Log(currentCar.name + "에 플레이어 조작이 할당되었습니다.");
+                // 플레이어 생성
+                GameObject playerCar = Instantiate(carPrefabs[i], playerSpawnPos, Quaternion.identity);
 
-                // ★ 2. 카메라 추적 타겟 설정 (여기 추가!) ★
-                CameraFollow camFollow = Camera.main.GetComponent<CameraFollow>();
-                if (camFollow != null)
-                {
-                    camFollow.target = currentCar.transform; // 카메라야, 이 차를 쫓아가!
-                }
+                // 핵심 해결책: 로비에서 꺼져있던 상태를 무시하고 강제로 활성화!
+                playerCar.SetActive(true);
+
+                playerCar.name = "PlayerCar_" + i;
+                playerCar.AddComponent<PlayerInput>();
+
+                if (cameraFollowScript != null) cameraFollowScript.target = playerCar.transform;
             }
             else
             {
-                // AI 조작 할당
-                AIInput aiBrain = currentCar.AddComponent<AIInput>();
-                aiBrain.targetWaypoint = firstWaypoint;
+                // AI 생성
+                if (aiSpawnIndex < aiSpawnPositions.Length)
+                {
+                    GameObject aiCar = Instantiate(carPrefabs[i], aiSpawnPositions[aiSpawnIndex], Quaternion.identity);
+
+                    // 핵심 해결책: AI 차량도 무조건 강제 활성화!
+                    aiCar.SetActive(true);
+
+                    aiCar.name = "AICar_" + i;
+                    aiCar.AddComponent<AIInput>();
+                    aiSpawnIndex++;
+                }
             }
         }
     }

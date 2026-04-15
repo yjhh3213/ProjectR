@@ -10107,12 +10107,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98fb303d45d2aa542a2eba2f65f60281, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  raceCars:
+  carPrefabs:
   - {fileID: 100000, guid: 9ea2ea91c8ce9fa41abab502c21dce33, type: 3}
   - {fileID: 100000, guid: a446810b4feee0342962f7375c74f6a0, type: 3}
   - {fileID: 100000, guid: 0cbd6e5da31e96d4ea851a8f4b59aed2, type: 3}
-  - {fileID: 0}
-  firstWaypoint: {fileID: 0}
+  - {fileID: 100000, guid: a6c1dd22aab11f943a7de21a160938a7, type: 3}
+  cameraFollowScript: {fileID: 963194229}
+  playerSpawnPos: {x: 0, y: 1.3, z: -40}
+  aiSpawnPositions:
+  - {x: 5, y: 1.3, z: -40}
+  - {x: -5, y: 1.3, z: -40}
+  - {x: 0, y: 1.3, z: -30}
 --- !u!4 &1065720114
 Transform:
   m_ObjectHideFlags: 0
@@ -10121,7 +10126,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1065720112}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 5.6438756, y: 2.0893133, z: 2.6202586}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

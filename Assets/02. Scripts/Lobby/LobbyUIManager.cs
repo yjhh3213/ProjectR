@@ -12,6 +12,14 @@ public class LobbyUIManager : MonoBehaviour
     public GameObject selectionPanel;
     public GameObject startEngineButton;
 
+    [Header("버튼 색상 설정")]
+    public Color normalColor = new Color(1f, 1f, 1f, 0f);       // 평소 (투명)
+    public Color selectedColor = new Color(1f, 0.16f, 0.16f, 1f); // 선택됨 (예: 레이싱 레드)
+
+    // 각 섹션의 현재 선택된 버튼을 기억할 변수
+    private Image currentMatchBtnImage;
+    private Image currentCarBtnImage;
+
     private bool isModeSelected = true; // 아케이드는 고정
     private bool isMatchSelected = false;
     private bool isCarSelected = false;
@@ -34,8 +42,35 @@ public class LobbyUIManager : MonoBehaviour
 
     public void SelectMatchType(int matchType)
     {
+        // 1. 현재 버튼 찾기 (이 함수를 호출한 버튼의 Image 컴포넌트를 넘겨받아야 함)
+        // 아래 '유니티 세팅' 설명 참고
         PlayerPrefs.SetInt("MatchType", matchType);
         isMatchSelected = true;
+        CheckReadyToStart();
+    }
+
+    // 가독성을 위해 추천하는 방식: 버튼 이미지를 직접 제어하는 함수
+    public void SetMatchButtonVisual(Image clickedImage)
+    {
+        // 기존에 선택됐던 버튼이 있다면 평소 색으로 되돌림
+        if (currentMatchBtnImage != null) currentMatchBtnImage.color = normalColor;
+
+        // 새로 클릭한 버튼을 선택 색상으로 변경
+        currentMatchBtnImage = clickedImage;
+        currentMatchBtnImage.color = selectedColor;
+
+        isMatchSelected = true;
+        CheckReadyToStart();
+    }
+
+    public void SetCarButtonVisual(Image clickedImage)
+    {
+        if (currentCarBtnImage != null) currentCarBtnImage.color = normalColor;
+
+        currentCarBtnImage = clickedImage;
+        currentCarBtnImage.color = selectedColor;
+
+        isCarSelected = true;
         CheckReadyToStart();
     }
 
@@ -44,8 +79,7 @@ public class LobbyUIManager : MonoBehaviour
     {
         PlayerPrefs.SetInt("SelectedCarIndex", carIndex);
         isCarSelected = true;
-
-        // 🌟 배경의 3D 자동차 모델 교체!
+        // 배경의 3D 자동차 모델 교체!
         UpdateShowroomCar(carIndex);
 
         CheckReadyToStart();
