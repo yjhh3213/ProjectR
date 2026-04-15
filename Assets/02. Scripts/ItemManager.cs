@@ -9,40 +9,76 @@ public class ItemManager : MonoBehaviour
     public ItemData inventoryItem;  // 현재 소지 아이템
     public bool isRolling = false;  // 4.6.2 상태 확인
 
+    [Header("3D 연출 설정 (추가된 부분)")]
+    public Transform itemSpawnPoint;    // 자동차 위 빈 오브젝트 연결
+    private GameObject currentItemObject; // 자동차 위 생성된 물체 저장 변수
+
     [Header("현재 상태")]
     public int currentRank = 1;     // 레이싱 시스템 연동
+
+    // 업데이트 문에서 사용 키 입력 감지 (추가)
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.LeftControl)) // 왼쪽 Ctrl 키로 사용
+        {
+            UseItem();
+        }
+    }
 
     // --- 아이템 획득 로직 ---
     public void StartGetItemRoutine()
     {
+        if (isRolling || inventoryItem != null) return;
         StartCoroutine(GetItemCoroutine());
     }
 
     IEnumerator GetItemCoroutine()
     {
         isRolling = true;
-        // 4.6.1 연출: 지붕 위 큐브에서 그림이 순차적으로 바뀌는 연출 (생략)
+        Debug.Log("아이템 추첨 중...");
+
+        // 4.6.1 연출시간(2초)
         yield return new WaitForSeconds(2f);
 
-        // 1. 등수별 타입 결정 (A, D, N)
+        // 1. 등수별 타입 결정
         ItemType selectedType = DecideTypeByRank(currentRank);
         // 2. 타입 내 세부 아이템 결정
         inventoryItem = DecideSpecificItem(currentRank, selectedType);
 
-        Debug.Log($"아이템 결정: {inventoryItem.itemName}");
+        if (inventoryItem != null)
+        {
+            Debug.Log($"아이템 결정: {inventoryItem.itemName}");
+
+            // --- [수정된 부분] 3D 프리팹 생성 및 지붕 부착 ---
+            if (itemSpawnPoint != null && inventoryItem.worldPrefab != null)
+            {
+                // 이미 머리 위에 뭐가 있다면 삭제
+                if (currentItemObject != null) Destroy(currentItemObject);
+
+                // 프리팹 생성
+                currentItemObject = Instantiate(inventoryItem.worldPrefab, itemSpawnPoint.position, itemSpawnPoint.rotation);
+
+                // 자동차의 자식으로 설정 (그래야 같이 움직임)
+                currentItemObject.transform.SetParent(itemSpawnPoint);
+
+                // 위치 초기화 (스폰포인트 정중앙)
+                currentItemObject.transform.localPosition = Vector3.zero;
+            }
+        }
+
         isRolling = false;
     }
 
-    // --- 4.2 ~ 4.5 등수별 확률 변동 테이블 ---
+    // --- 4.2 ~ 4.5 등수별 확률 변동 테이블 (이전과 동일) ---
     ItemType DecideTypeByRank(int rank)
     {
-        float r = Random.Range(0, 10); // 0~9 범위
+        float r = Random.Range(0, 10);
         switch (rank)
         {
-            case 1: return (r < 9) ? ItemType.Defense : ItemType.Neutral; // D:9, N:1
-            case 2: return (r < 2) ? ItemType.Attack : (r < 8) ? ItemType.Defense : ItemType.Neutral; // A:2, D:6, N:2
-            case 3: return (r < 4) ? ItemType.Attack : (r < 6) ? ItemType.Defense : ItemType.Neutral; // A:4, D:2, N:4
-            case 4: return (r < 4) ? ItemType.Attack : ItemType.Neutral; // A:4, N:6
+            case 1: return (r < 9) ? ItemType.Defense : ItemType.Neutral;
+            case 2: return (r < 2) ? ItemType.Attack : (r < 8) ? ItemType.Defense : ItemType.Neutral;
+            case 3: return (r < 4) ? ItemType.Attack : (r < 6) ? ItemType.Defense : ItemType.Neutral;
+            case 4: return (r < 4) ? ItemType.Attack : ItemType.Neutral;
             default: return ItemType.Neutral;
         }
     }
@@ -72,9 +108,18 @@ public class ItemManager : MonoBehaviour
     {
         if (inventoryItem == null || isRolling) return;
 
-        // 사운드 재생 (2.2.x.3)
-        AudioSource.PlayClipAtPoint(inventoryItem.soundEffect, transform.position);
+        // 사운드 재생
+        if (inventoryItem.soundEffect != null)
+            AudioSource.PlayClipAtPoint(inventoryItem.soundEffect, transform.position);
 
+        // --- [수정된 부분] 사용 시 머리 위 3D 오브젝트 삭제 ---
+        if (currentItemObject != null)
+        {
+            Destroy(currentItemObject);
+            currentItemObject = null;
+        }
+
+        // 아이템별 효과 함수 호출
         switch (inventoryItem.itemName)
         {
             case "Missile": ExecuteMissile(); break;
@@ -83,13 +128,14 @@ public class ItemManager : MonoBehaviour
             case "Shield": ExecuteShield(); break;
             case "Banana": ExecuteBanana(); break;
         }
-        inventoryItem = null; // 사용 후 제거
+
+        inventoryItem = null; // 소지 아이템 데이터 초기화
     }
 
-    // --- 개별 효과 구현 (4.1.1 ~ 4.1.5) ---
-    void ExecuteMissile() { /* 앞 차량 조준, 2초 스턴, 검은 연기 연출 */ }
-    void ExecuteDevil() { /* 전원 보라색 오버레이, 키 반전 5~10초 */ }
-    void ExecuteBooster() { /* 즉시 최대 속도, 3~4초 배기구 파란 이펙트 */ }
-    void ExecuteShield() { /* 3초간 모든 충돌/아이템 면역, 파란 보호막 생성 */ }
-    void ExecuteBanana() { /* 후방 설치, 밟으면 스키드마크와 함께 속도 0 */ }
+    // --- 개별 효과 구현 ---
+    void ExecuteMissile() { Debug.Log("미사일 발사 기능 실행"); }
+    void ExecuteDevil() { Debug.Log("대마왕 효과 실행"); }
+    void ExecuteBooster() { Debug.Log("부스터 효과 실행"); }
+    void ExecuteShield() { Debug.Log("쉴드 효과 실행"); }
+    void ExecuteBanana() { Debug.Log("바나나 설치 기능 실행"); }
 }
