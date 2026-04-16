@@ -100,7 +100,7 @@ MonoBehaviour:
   skidMarks:
   - {fileID: 1773148336016837262}
   - {fileID: 2471392633458811337}
-  downforce: 100
+  downforce: 2000
   centerOfMassOffset: {x: 0, y: -1, z: 0}
   verticalInput: 0
   horizontalInput: 0
