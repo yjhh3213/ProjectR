@@ -35,6 +35,9 @@ public class StartGridManager : MonoBehaviour
 
     private void SpawnVehicles(int playerIndex)
     {
+        Transform playerCarTransform = null;
+        List<Transform> aiCarTransforms = new List<Transform>();
+
         for (int i = 0; i < carPrefabs.Length; i++)
         {
             if (carPrefabs[i] == null) continue;
@@ -53,6 +56,7 @@ public class StartGridManager : MonoBehaviour
                 // --- 플레이어(나) 설정 ---
                 spawnedCar.name = "PlayerCar_" + i;
 
+                playerCarTransform = spawnedCar.transform;
                 // 여기서 PlayerInput을 복제본에 동적으로 추가해줍니다!
                 spawnedCar.AddComponent<PlayerInput>();
                 ArcadeCarController AC = spawnedCar.GetComponent<ArcadeCarController>();
@@ -78,6 +82,8 @@ public class StartGridManager : MonoBehaviour
                 // --- AI 설정 (친구분 파트 정상화) ---
                 spawnedCar.name = "AICar_" + i;
 
+                aiCarTransforms.Add(spawnedCar.transform);
+
                 if (controller != null)
                 {
                     controller.isAI = true; // 뇌 제어권: AI
@@ -89,6 +95,12 @@ public class StartGridManager : MonoBehaviour
 
                 Debug.Log(carPrefabs[i].name + "가 AI로 배정되었습니다.");
             }
+        }
+
+        MinimapManager minimap = FindObjectOfType<MinimapManager>();
+        if (minimap != null)
+        {
+            minimap.SetupMinimap(playerCarTransform, aiCarTransforms);
         }
     }
     //준석이 파트

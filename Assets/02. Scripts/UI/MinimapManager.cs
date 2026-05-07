@@ -1,14 +1,23 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class MinimapManager : MonoBehaviour
 {
-    [Header("UI 연결 (점 아이콘)")]
-    public RectTransform playerDot;
-    public RectTransform[] aiDots;
+    [Header("UI 점 아이콘 (미리 할당)")]
+    public RectTransform playerDot; // 인스펙터에서 Player_Dot 할당
+    public RectTransform[] aiDots;  // 인스펙터에서 AI_Dot 1~3 할당
 
-    [Header("추적할 실제 3D 자동차들")]
-    public Transform playerCar;
-    public Transform[] aiCars;
+    private Transform playerCar;
+    private List<Transform> aiCars = new List<Transform>();
+
+    // StartGridManager에서 차를 다 만든 후 호출할 함수
+    public void SetupMinimap(Transform pCar, List<Transform> aCars)
+    {
+        playerCar = pCar;
+        aiCars = aCars;
+
+        Debug.Log("미니맵: 모든 차량 연결 완료!");
+    }
 
     [Header("맵 동기화 세팅 (매우 중요!)")]
     // 3D 맵의 중심점과 크기를 2D UI 크기(300x300)에 맞게 변환하기 위한 수치입니다.
@@ -17,30 +26,19 @@ public class MinimapManager : MonoBehaviour
     public float uiMapSize = 300f;    // UI 상의 미니맵 크기 (유저 기획: 300)
     public Vector3 worldCenterOffset; // 3D 맵의 정중앙 좌표 (0,0,0이 아닐 경우 조정)
 
-    // 외부(StartGridManager)에서 차가 스폰되면 이 함수를 불러서 연결해줍니다.
-    public void SetupMinimap(Transform pCar, Transform[] aCars)
-    {
-        playerCar = pCar;
-        aiCars = aCars;
-
-        // 플레이어 점 색상 설정 (예: 노란색이나 연두색)
-        playerDot.GetComponent<UnityEngine.UI.Image>().color = Color.green;
-
-        // AI 점 색상 설정 (예: 붉은색 계열)
-        foreach (var dot in aiDots)
-        {
-            dot.GetComponent<UnityEngine.UI.Image>().color = Color.red;
-        }
-    }
+    [Header("미니맵 이미지 보정 (영점 조절)")]
+    public Vector2 uiOffset = new Vector2(160f, 50f);
 
     void Update()
     {
+        // 플레이어 위치 업데이트
         if (playerCar != null)
         {
             UpdateDotPosition(playerCar, playerDot);
         }
 
-        for (int i = 0; i < aiCars.Length; i++)
+        // AI 위치 업데이트
+        for (int i = 0; i < aiCars.Count; i++)
         {
             if (aiCars[i] != null && i < aiDots.Length)
             {
@@ -63,6 +61,6 @@ public class MinimapManager : MonoBehaviour
         float mapY = relativePosition.z * scaleRatio;
 
         // 4. 점의 위치를 이동!
-        dot.anchoredPosition = new Vector2(mapX, mapY);
+        dot.anchoredPosition = new Vector2(mapX, mapY) + uiOffset;
     }
 }
