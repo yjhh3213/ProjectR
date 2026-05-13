@@ -35,20 +35,33 @@ public class StartGridManager : MonoBehaviour
 
     private void SpawnVehicles(int playerIndex)
     {
-        Transform playerCarTransform = null;
-        List<Transform> aiCarTransforms = new List<Transform>();
+        // 1. 씬에 배치된 RankManager(심판)를 미리 찾습니다.
+        RankManager rankManager = FindObjectOfType<RankManager>();
 
         for (int i = 0; i < carPrefabs.Length; i++)
         {
             if (carPrefabs[i] == null) continue;
 
-            // 1. 차량 생성 (에러가 있던 빈칸 부분에 섞인 스폰 위치 적용)
+            // 2. 차량 생성 (설정된 스폰 포인트 위치에 생성)
             GameObject spawnedCar = Instantiate(carPrefabs[i], spawnPoints[i].position, spawnPoints[i].rotation);
 
             // 로비에서 꺼져있던 프리팹일 수 있으므로 강제 활성화
             spawnedCar.SetActive(true);
 
-            // 2. 방금 생성된 복제본 차량의 CarController 가져오기
+            // 3. 순위 시스템 등록 (핵심 수정 사항)
+            // 생성된 자동차에 붙은 RaceParticipant 컴포넌트를 가져와 RankManager의 리스트에 넣습니다.
+            RaceParticipant participant = spawnedCar.GetComponent<RaceParticipant>();
+            if (rankManager != null && participant != null)
+            {
+                rankManager.participants.Add(participant); // 심판 리스트에 자동차 등록
+                Debug.Log($"{spawnedCar.name}가 순위 시스템(RankManager)에 등록되었습니다.");
+            }
+            else
+            {
+                Debug.LogWarning($"{spawnedCar.name}에 RaceParticipant가 없거나 RankManager를 찾을 수 없습니다.");
+            }
+
+            // 4. 자동차 컨트롤러 참조 가져오기
             CarController controller = spawnedCar.GetComponent<CarController>();
 
             if (i == playerIndex)
@@ -56,51 +69,39 @@ public class StartGridManager : MonoBehaviour
                 // --- 플레이어(나) 설정 ---
                 spawnedCar.name = "PlayerCar_" + i;
 
-                playerCarTransform = spawnedCar.transform;
-                // 여기서 PlayerInput을 복제본에 동적으로 추가해줍니다!
+                // 플레이어 조작 입력을 위해 PlayerInput 컴포넌트 추가
                 spawnedCar.AddComponent<PlayerInput>();
-                ArcadeCarController AC = spawnedCar.GetComponent<ArcadeCarController>();
 
+                // UI 및 카메라 연결
+                ArcadeCarController AC = spawnedCar.GetComponent<ArcadeCarController>();
                 SpeedometerUI ui = FindObjectOfType<SpeedometerUI>();
                 if (ui != null)
                 {
                     ui.SetupUI(AC);
                 }
-                if (controller != null) controller.isAI = false; // 뇌 제어권: 플레이어
+
+                if (controller != null) controller.isAI = false; // 플레이어가 직접 조종
+
                 if (cameraFollowScript != null)
                 {
                     cameraFollowScript.target = spawnedCar.transform;
                 }
-                else
-                {
-                    Debug.LogError("RaceManager에 CameraFollow 스크립트가 연결되지 않았습니다!");
-                }
+
                 Debug.Log(carPrefabs[i].name + "가 플레이어로 배정되었습니다.");
             }
             else
             {
-                // --- AI 설정 (친구분 파트 정상화) ---
+                // --- AI 설정 ---
                 spawnedCar.name = "AICar_" + i;
-
-                aiCarTransforms.Add(spawnedCar.transform);
 
                 if (controller != null)
                 {
-                    controller.isAI = true; // 뇌 제어권: AI
-                    controller.waypoints = waypointList; // 웨이포인트 경로 전달
+                    controller.isAI = true; // AI가 조종
+                    controller.waypoints = waypointList; // AI 주행 경로 전달
                 }
-
-                // 만약 AI도 PlayerInput처럼 별도의 스크립트가 필요하다면 아래 줄의 주석을 해제하세요.
-                // spawnedCar.AddComponent<AIInput>(); 
 
                 Debug.Log(carPrefabs[i].name + "가 AI로 배정되었습니다.");
             }
-        }
-
-        MinimapManager minimap = FindObjectOfType<MinimapManager>();
-        if (minimap != null)
-        {
-            minimap.SetupMinimap(playerCarTransform, aiCarTransforms);
         }
     }
     //준석이 파트

@@ -53,10 +53,18 @@ public class ItemBox : MonoBehaviour
     IEnumerator RespawnRoutine()
     {
         isActive = false;
-        cubeMesh.SetActive(false);
-        // 2.1.2.1 5~10초 사이 간격 재생성
-        yield return new WaitForSeconds(Random.Range(5f, 10f));
-        cubeMesh.SetActive(true);
+
+        // 1. 모델만 숨기기 (MeshRenderer만 끄기)
+        if (cubeMesh != null) cubeMesh.SetActive(false);
+
+        // 2. 5~10초 사이 간격 대기
+        float waitTime = Random.Range(5f, 10f); 
+    yield return new WaitForSeconds(waitTime); 
+    
+    // 3. 모델 다시 보이기
+    if (cubeMesh != null) cubeMesh.SetActive(true);
+
         isActive = true;
+        Debug.Log("아이템 상자가 재생성되었습니다!");
     }
 }
