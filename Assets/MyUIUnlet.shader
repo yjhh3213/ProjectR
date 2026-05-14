@@ -4,6 +4,7 @@
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Tint Color", Color) = (1,1,1,1)   // ✔️ 추가
+      _EmissionPower ("Emission Power", Range(0,10)) = 1
     }
 
     SubShader
@@ -49,6 +50,7 @@
             sampler2D _MainTex;
             float4 _MainTex_ST;
             float4 _Color;   // ✔️ 추가
+            float _EmissionPower;
 
             v2f vert (appdata v)
             {
@@ -62,8 +64,11 @@
 
             fixed4 frag (v2f i) : SV_Target
             {
-                fixed4 col = tex2D(_MainTex, i.uv) * i.color; // ✔️ 곱해줌
+                fixed4 col = tex2D(_MainTex, i.uv) * i.color;//*_EmissionPower; // ✔️ 곱해줌
+                
                 UNITY_APPLY_FOG(i.fogCoord, col);
+               // col.a = 1;
+                 
                 return col;
             }
             ENDCG
