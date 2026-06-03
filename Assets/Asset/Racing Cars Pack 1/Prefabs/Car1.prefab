@@ -129,8 +129,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: acfd9e4f66c46bf4d82ecbd2bde0dd17, type: 2}
   inventoryItem: {fileID: 0}
   isRolling: 0
-  itemSpawnPoint: {fileID: 1092277402194494089}
   currentRank: 1
+  smokeEffect: {fileID: 0}
+  blueBoostEffect: {fileID: 0}
+  bananaPrefab: {fileID: 0}
+  itemSpawnPoint: {fileID: 1092277402194494089}
 --- !u!114 &2163475757444675626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -311,8 +314,8 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  speed: 15
-  rotSpeed: 5
+  arrivalDistance: 20
+  totalWaypointsPassed: 0
 --- !u!114 &7267456971235478967
 MonoBehaviour:
   m_ObjectHideFlags: 0

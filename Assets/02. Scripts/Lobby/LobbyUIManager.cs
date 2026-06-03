@@ -12,6 +12,9 @@ public class LobbyUIManager : MonoBehaviour
     public GameObject selectionPanel;
     public GameObject startEngineButton;
 
+    [Header("종료 확인 UI 패널")]
+    public GameObject quitPanel; // [추가됨] 종료 확인 패널 연결용
+
     [Header("버튼 색상 설정")]
     public Color normalColor = new Color(1f, 1f, 1f, 0f);       // 평소 (투명)
     public Color selectedColor = new Color(1f, 0.16f, 0.16f, 1f); // 선택됨 (예: 레이싱 레드)
@@ -108,5 +111,47 @@ public class LobbyUIManager : MonoBehaviour
     public void StartGame()
     {
         SceneManager.LoadScene("MainRacingScene");
+    }
+
+    // [추가됨] SelectionPanel 닫기 (X 버튼용)
+    public void CloseSelectionPanel()
+    {
+        selectionPanel.SetActive(false);
+        flagButton.SetActive(true); // 다시 화면의 깃발 버튼을 표시
+
+        // (선택 사항) 닫을 때 선택 상태를 초기화하고 싶다면 아래 주석을 해제하세요.
+        
+        isModeSelected = true;
+        isMatchSelected = false;
+        isCarSelected = false;
+        startEngineButton.SetActive(false);
+        if (currentMatchBtnImage != null) currentMatchBtnImage.color = normalColor;
+        if (currentCarBtnImage != null) currentCarBtnImage.color = normalColor;
+        
+    }
+
+    // [추가됨] 종료 확인 패널 열기 (로비 화면의 '종료' 버튼에 연결)
+    public void OpenQuitPanel()
+    {
+        quitPanel.SetActive(true);
+    }
+
+    // [추가됨] 종료 확인 패널 닫기 (되돌아가기 버튼용)
+    public void CloseQuitPanel()
+    {
+        quitPanel.SetActive(false);
+    }
+
+    // [추가됨] 게임 완전히 종료하기 (종료 버튼용)
+    public void QuitGame()
+    {
+        Debug.Log("게임을 종료합니다.");
+
+        // 유니티 에디터 환경에서도 플레이 모드가 꺼지도록 처리
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit(); // 실제 빌드된 게임에서 작동
+#endif
     }
 }

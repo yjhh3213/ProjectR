@@ -1,88 +1,130 @@
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 
 public class CarController : MonoBehaviour
 {
+    [Header("역할 설정")]
     public bool isAI = true;
 
-    [Header("AI 주행")]
+    [Header("AI 주행 설정")]
     public List<Transform> waypoints;
-    public float speed = 15f;
-    public float rotSpeed = 5f;
+    public float arrivalDistance = 20f;
     private int currentIdx = 0;
 
-    // --- 추가된 변수 ---
-    private float sideOffset;      // 좌우로 치우칠 정도 (-3 ~ 3 사이 추천)
-    private float lookAheadDist;   // 각 차마다 다른 전방 주시 거리
-    // ------------------
+    // ★ [핵심 추가] 레이스 시작 후 총 몇 개의 체크포인트를 통과했는지 기록 (등수 유지용)
+    [HideInInspector]
+    public int totalWaypointsPassed = 0;
 
+    private ArcadeCarController arcadeCar;
     private ItemManager itemManager;
-    private bool isWaitingToUseItem = false;
+    private Rigidbody rb;
 
     void Start()
     {
+        arcadeCar = GetComponent<ArcadeCarController>();
         itemManager = GetComponent<ItemManager>();
+        rb = GetComponent<Rigidbody>();
         gameObject.tag = "Player";
-
-        // [핵심] 차마다 개성을 부여합니다.
-        // 이 값 덕분에 3대의 차가 서로 다른 위치를 향해 달려 일렬 주행이 사라집니다.
-        sideOffset = Random.Range(-3.5f, 3.5f);
-        lookAheadDist = Random.Range(2.0f, 5.0f); // 어떤 차는 더 멀리, 어떤 차는 더 가까이 보고 꺾음
     }
 
     void Update()
     {
+        if (itemManager != null && itemManager.IsStunned)
+        {
+            StopCar();
+            return;
+        }
+
+        UpdateWaypointCheck();
+
         if (isAI)
         {
             HandleAIMovement();
-            HandleAIItemUsage();
         }
-        else
+    }
+
+    void UpdateWaypointCheck()
+    {
+        if (waypoints == null || waypoints.Count == 0) return;
+
+        Vector3 targetPos = waypoints[currentIdx].position;
+
+        Vector3 playerPosXZ = new Vector3(transform.position.x, 0, transform.position.z);
+        Vector3 targetPosXZ = new Vector3(targetPos.x, 0, targetPos.z);
+
+        float distance = Vector3.Distance(playerPosXZ, targetPosXZ);
+
+        if (distance < arrivalDistance)
         {
-            // 플레이어 조작 (기존과 동일)
-            if (Input.GetKeyDown(KeyCode.LeftControl)) itemManager.UseItem();
+            Vector3 targetDir = (targetPosXZ - playerPosXZ).normalized;
+            float dot = Vector3.Dot(transform.forward, targetDir);
+
+            if (dot <= 0.0f || distance < 5f)
+            {
+                currentIdx = (currentIdx + 1) % waypoints.Count;
+
+                // ★ [핵심 추가] 체크포인트를 하나 통과할 때마다 누적 점수를 1씩 올립니다.
+                totalWaypointsPassed++;
+            }
         }
     }
 
     void HandleAIMovement()
     {
-        if (waypoints.Count == 0) return;
+        if (waypoints == null || waypoints.Count == 0) return;
 
-        // [수정] 단순 웨이포인트 위치가 아닌, 좌우 편차가 적용된 타겟 위치 계산
         Vector3 targetPos = waypoints[currentIdx].position;
+        Vector3 localTarget = transform.InverseTransformPoint(targetPos);
+        localTarget.y = 0;
 
-        // 웨이포인트의 오른쪽 방향벡터(right)를 기준으로 sideOffset만큼 밀어줍니다.
-        targetPos += waypoints[currentIdx].right * sideOffset;
+        float relativeAngle = Mathf.Atan2(localTarget.x, localTarget.z) * Mathf.Rad2Deg;
+        float absAngle = Mathf.Abs(relativeAngle);
 
-        Vector3 targetDir = targetPos - transform.position;
-        targetDir.y = 0;
-
-        if (targetDir != Vector3.zero)
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(targetDir), rotSpeed * Time.deltaTime);
-
-        transform.Translate(Vector3.forward * speed * Time.deltaTime);
-
-        // [수정] lookAheadDist를 활용해 다음 지점으로 넘어가는 타이밍을 다르게 줍니다.
-        if (Vector3.Distance(transform.position, targetPos) < lookAheadDist)
-            currentIdx = (currentIdx + 1) % waypoints.Count;
-    }
-
-    // 아이템 사용 로직 (기존과 동일)
-    void HandleAIItemUsage()
-    {
-        if (itemManager.inventoryItem != null && !itemManager.isRolling && !isWaitingToUseItem)
+        if (arcadeCar != null && rb != null)
         {
-            float randomDelay = Random.Range(3f, 7f);
-            StartCoroutine(WaitAndUseItem(randomDelay));
+            float currentSpeed = rb.velocity.magnitude * 3.6f;
+
+            if (absAngle > 25f)
+            {
+                arcadeCar.verticalInput = (currentSpeed > 70f) ? -0.4f : 0.2f;
+                arcadeCar.horizontalInput = Mathf.Clamp(relativeAngle / 15f, -1.0f, 1.0f);
+            }
+            else if (absAngle > 8f)
+            {
+                arcadeCar.verticalInput = (currentSpeed > 130f) ? 0.1f : 0.7f;
+                arcadeCar.horizontalInput = Mathf.Clamp(relativeAngle / 25f, -1.0f, 1.0f);
+            }
+            else
+            {
+                arcadeCar.verticalInput = 1.0f;
+                arcadeCar.horizontalInput = Mathf.Clamp(relativeAngle / 40f, -1.0f, 1.0f);
+            }
         }
     }
 
-    IEnumerator WaitAndUseItem(float delay)
+    private void StopCar()
     {
-        isWaitingToUseItem = true;
-        yield return new WaitForSeconds(delay);
-        if (itemManager.inventoryItem != null) itemManager.UseItem();
-        isWaitingToUseItem = false;
+        if (arcadeCar != null)
+        {
+            arcadeCar.verticalInput = 0f;
+            arcadeCar.horizontalInput = 0f;
+        }
+    }
+
+    public int GetCurrentWaypointIndex() { return currentIdx; }
+
+    public void SetCurrentWaypointIndex(int index)
+    {
+        if (waypoints != null && index < waypoints.Count)
+        {
+            currentIdx = index;
+        }
+    }
+
+    public Vector3 GetTargetWaypointPosition()
+    {
+        if (waypoints != null && waypoints.Count > currentIdx)
+            return waypoints[currentIdx].position;
+        return transform.position;
     }
 }

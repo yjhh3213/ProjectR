@@ -10,11 +10,10 @@ public class InGameHUDManager : MonoBehaviour
     private float elapsedTime = 0f;
     private bool isRacing = false;
     private int currentRank = 1;
-    private int totalPlayers = 4;
+    private int totalPlayers = 4; // 기본값, Start 시점에 자동으로 갱신됨
 
     void Start()
     {
-        // 게임 시작 시 타이머 작동 (나중에 카운트다운 완료 후 실행되게 변경 가능)
         isRacing = true;
     }
 
@@ -27,22 +26,26 @@ public class InGameHUDManager : MonoBehaviour
         }
     }
 
-    // 5.1.4: 시간 표시 로직 (분:초:밀리초)
+    // 시간 표시 로직 (0'00''000 포맷 반영)
     void UpdateTimerUI()
     {
         int minutes = Mathf.FloorToInt(elapsedTime / 60f);
         int seconds = Mathf.FloorToInt(elapsedTime % 60f);
-        int milliseconds = Mathf.FloorToInt((elapsedTime * 100f) % 100f);
+        int milliseconds = Mathf.FloorToInt((elapsedTime * 1000f) % 1000f); // 3자리 밀리초
 
-        // 00:00.00 포맷으로 변환
-        timeText.text = string.Format("{0:00}:{1:00}:{2:00}", minutes, seconds, milliseconds);
+        timeText.text = string.Format("{0:0}'{1:00}''{2:000}", minutes, seconds, milliseconds);
     }
 
-    // 5.1.2: 등수 업데이트 (외부 RaceManager에서 호출)
+    // [추가] 참가자 명단 수를 기반으로 총 인원수를 동기화하는 함수
+    public void SetupTotalPlayers(int count)
+    {
+        totalPlayers = count;
+    }
+
+    // 등수 업데이트 (RankManager에서 호출됨)
     public void UpdateRank(int newRank)
     {
         currentRank = newRank;
-        // 카트라이더 스타일: "1 / 4" 형태로 표시
         rankText.text = currentRank.ToString() + " <size=50%>/ " + totalPlayers.ToString() + "</size>";
     }
 }
