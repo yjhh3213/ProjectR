@@ -6,6 +6,7 @@ public class InGameHUDManager : MonoBehaviour
     [Header("UI 연결")]
     public TextMeshProUGUI timeText;
     public TextMeshProUGUI rankText;
+    public TextMeshProUGUI distanceText; // [추가됨] 거리 표시용 텍스트
 
     private float elapsedTime = 0f;
     private bool isRacing = false;
@@ -36,7 +37,7 @@ public class InGameHUDManager : MonoBehaviour
         timeText.text = string.Format("{0:0}'{1:00}''{2:000}", minutes, seconds, milliseconds);
     }
 
-    // [추가] 참가자 명단 수를 기반으로 총 인원수를 동기화하는 함수
+    // 참가자 명단 수를 기반으로 총 인원수를 동기화하는 함수
     public void SetupTotalPlayers(int count)
     {
         totalPlayers = count;
@@ -47,5 +48,14 @@ public class InGameHUDManager : MonoBehaviour
     {
         currentRank = newRank;
         rankText.text = currentRank.ToString() + " <size=50%>/ " + totalPlayers.ToString() + "</size>";
+    }
+
+    // [추가됨] 거리를 텍스트로 갱신 (소수점 1자리까지)
+    public void UpdateDistanceDisplay(float distance)
+    {
+        if (distanceText != null)
+        {
+            distanceText.text = distance.ToString("F1") + "m";
+        }
     }
 }

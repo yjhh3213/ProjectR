@@ -133,7 +133,7 @@ public class ItemManager : MonoBehaviour
 
     void ExecuteDevil()
     {
-        ItemManager[] allManagers = FindObjectsOfType<ItemManager>();
+        ItemManager[] allManagers = FindObjectsByType<ItemManager>(FindObjectsSortMode.None);
         foreach (var im in allManagers) if (im != this) im.StartCoroutine(im.DevilRoutine());
     }
 
@@ -166,12 +166,24 @@ public class ItemManager : MonoBehaviour
         IsShielded = false;
     }
 
+    // ★ 바나나 생성 위치를 완전히 뒤로 빼주는 핵심 수정 구간
     void ExecuteBanana()
     {
         if (bananaPrefab != null)
         {
-            Vector3 spawnPos = transform.position - (transform.forward * 4.5f);
-            spawnPos.y = 0.1f;
+            // 기존 4.5f에서 7.0f로 거리를 대폭 늘려 차체에 걸리지 않도록 방지합니다.
+            Vector3 spawnPos = transform.position - (transform.forward * 7.0f);
+
+            // 허공에 뜨지 않도록 스폰 포인트의 높이(y)를 참조합니다.
+            if (itemSpawnPoint != null)
+            {
+                spawnPos.y = itemSpawnPoint.position.y;
+            }
+            else
+            {
+                spawnPos.y = 0.1f;
+            }
+
             Instantiate(bananaPrefab, spawnPos, Quaternion.identity);
         }
     }

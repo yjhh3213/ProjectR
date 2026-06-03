@@ -3,24 +3,30 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class LapTracker : MonoBehaviour
 {
-    [Header("UI 설정 (코드가 자동으로 찾으므로 비워두셔도 됩니다)")]
+    [Header("UI 설정")]
     public Image lapImage;
-    public TextMeshProUGUI lapText;
+    public TextMeshProUGUI rankText;
 
     [Header("레이스 설정")]
     public int totalLaps = 3;
     private int completedLaps = 0;
     private bool isFinished = false;
 
-    private float lastTriggerTime = 0f; // 미세한 떨림으로 인한 중복 카운트 방지용 쿨타임
-    private static List<string> finishOrder = new List<string>();
+    private float lastTriggerTime = 0f;
+
+    private ItemManager myItemManager;
+    private float raceStartTime;
+    private Coroutine rainbowCoroutine; // 무지개 코루틴 제어용
 
     void Start()
     {
-        // StartGridManager가 차를 생성하고 이름을 바꾸는 타이밍을 안전하게 대기합니다.
+        myItemManager = GetComponent<ItemManager>();
+        raceStartTime = Time.time;
+
         StartCoroutine(InitUIWithDelay());
     }
 
@@ -28,14 +34,13 @@ public class LapTracker : MonoBehaviour
     {
         yield return null;
 
-        // 내가 플레이어 차량("PlayerCar")일 때만 씬에서 UI를 찾아 연결합니다.
-        if (gameObject.name == "PlayerCar")
+        if (gameObject.CompareTag("Player"))
         {
-            FindAndSetupUI();
+            FindAndSetupSharedUI();
         }
     }
 
-    void FindAndSetupUI()
+    void FindAndSetupSharedUI()
     {
         if (lapImage == null)
         {
@@ -43,13 +48,12 @@ public class LapTracker : MonoBehaviour
             if (imgObj != null) lapImage = imgObj.GetComponent<Image>();
         }
 
-        if (lapText == null)
+        if (rankText == null)
         {
-            GameObject textObj = GameObject.Find("LapText");
-            if (textObj != null) lapText = textObj.GetComponent<TextMeshProUGUI>();
+            GameObject textObj = GameObject.Find("RankText");
+            if (textObj != null) rankText = textObj.GetComponent<TextMeshProUGUI>();
         }
 
-        // UI 에셋 초기 세팅
         if (lapImage != null)
         {
             lapImage.type = Image.Type.Filled;
@@ -57,20 +61,38 @@ public class LapTracker : MonoBehaviour
             lapImage.fillAmount = 0f;
             lapImage.color = Color.white;
         }
+    }
 
-        if (lapText != null)
+    void Update()
+    {
+        if (isFinished) return;
+
+        if (gameObject.CompareTag("Player"))
         {
-            lapText.text = $"Lap: 0 / {totalLaps}";
+            UpdateSharedRankUI();
         }
     }
 
-    // ★ [핵심 추가] 피니시 라인(Trigger)을 통과하는 순간을 물리적으로 감지합니다.
+    void UpdateSharedRankUI()
+    {
+        if (rankText == null || myItemManager == null) return;
+
+        int currentRank = myItemManager.currentRank;
+
+        if (currentRank < 1) currentRank = 1;
+
+        string rankSuffix = "th";
+        if (currentRank == 1) rankSuffix = "st";
+        else if (currentRank == 2) rankSuffix = "nd";
+        else if (currentRank == 3) rankSuffix = "rd";
+
+        rankText.text = $"{currentRank}{rankSuffix}";
+    }
+
     private void OnTriggerEnter(Collider other)
     {
-        // 3초 이내에 연속으로 감지되는 중복 버그 방지
         if (Time.time - lastTriggerTime < 3f) return;
 
-        // 부딪힌 오브젝트의 이름이 "FinishLine" 이거나 태그가 "FinishLine" 일 때 작동
         if (other.gameObject.name == "FinishLine" || other.CompareTag("FinishLine"))
         {
             lastTriggerTime = Time.time;
@@ -83,7 +105,20 @@ public class LapTracker : MonoBehaviour
         if (isFinished) return;
 
         completedLaps++;
+
+        RaceParticipant participant = GetComponent<RaceParticipant>();
+        if (participant != null) participant.currentLap = completedLaps + 1;
+
         UpdateVisuals();
+
+        // ★ [수정됨] 2바퀴를 완료하고 3바퀴째에 돌입하는 순간 무지개 발동
+        if (completedLaps == 2 && gameObject.CompareTag("Player"))
+        {
+            if (rainbowCoroutine == null)
+            {
+                rainbowCoroutine = StartCoroutine(RainbowRoutine());
+            }
+        }
 
         if (completedLaps >= totalLaps)
         {
@@ -93,20 +128,13 @@ public class LapTracker : MonoBehaviour
 
     void UpdateVisuals()
     {
-        if (gameObject.name != "PlayerCar") return;
+        if (!gameObject.CompareTag("Player")) return;
 
-        if (lapImage == null || lapText == null) FindAndSetupUI();
-
-        if (lapText != null)
-        {
-            lapText.text = $"Lap: {completedLaps} / {totalLaps}";
-        }
+        if (lapImage == null) FindAndSetupSharedUI();
 
         if (lapImage != null)
         {
-            // [기획 의도 완벽 반영 수학 공식]
-            // 1바퀴 완료 = 1 / 2 = 0.5 (절반 채워짐)
-            // 2바퀴 완료 = 2 / 2 = 1.0 (꽉 채워짐)
+            // ★ [수정됨] 무조건 2로 나누어 1바퀴 통과 시 0.5(반원), 2바퀴 통과 시 1.0(원)을 만듭니다.
             lapImage.fillAmount = (float)completedLaps / 2f;
         }
     }
@@ -114,19 +142,84 @@ public class LapTracker : MonoBehaviour
     void CompleteRace()
     {
         isFinished = true;
-        finishOrder.Add(gameObject.name);
 
-        int rank = finishOrder.Count;
-        Debug.Log($"{gameObject.name} 완주! 순위: {rank}");
-
-        if (gameObject.name == "PlayerCar")
+        if (gameObject.CompareTag("Player"))
         {
-            if (lapText != null)
+            if (rankText != null) rankText.text = $"<color=yellow>FINISHED!</color>";
+
+            float playerTime = Time.time - raceStartTime;
+            int playerRank = (myItemManager != null) ? myItemManager.currentRank : 1;
+
+            RaceResultData.savedResults.Clear();
+
+            LapTracker[] allCars = FindObjectsByType<LapTracker>(FindObjectsSortMode.None);
+
+            List<string> aiCarNames = new List<string>();
+            foreach (var car in allCars)
             {
-                lapText.text = $"<color=yellow>FINISHED!</color>\n<size=80%>{rank}위</size>";
+                if (car != this)
+                {
+                    aiCarNames.Add(car.gameObject.name.Replace("(Clone)", "").Trim());
+                }
             }
-            StartCoroutine(RainbowRoutine());
+
+            while (aiCarNames.Count < 3)
+            {
+                aiCarNames.Add("AICar_" + aiCarNames.Count);
+            }
+
+            if (playerRank == 1)
+            {
+                AddResultSlot(gameObject.name, playerTime);
+                AddResultSlot(aiCarNames[0], playerTime + 2f);
+                AddResultSlot(aiCarNames[1], playerTime + 5f);
+                AddResultSlot(aiCarNames[2], playerTime + 9f);
+            }
+            else
+            {
+                int aiIndex = 0;
+
+                if (playerRank == 2) { AddResultSlot(gameObject.name, playerTime); }
+                else
+                {
+                    float aiTime = playerTime - Random.Range(3f, 7f);
+                    if (aiTime < 1f) aiTime = 1f;
+                    AddResultSlot(aiCarNames[aiIndex++], aiTime);
+                }
+
+                if (playerRank == 3) { AddResultSlot(gameObject.name, playerTime); }
+                else if (playerRank > 2) { AddResultSlot(aiCarNames[aiIndex++], playerTime - Random.Range(1f, 3f)); }
+                else { AddResultSlot(aiCarNames[aiIndex++], playerTime + Random.Range(1f, 10f)); }
+
+                if (playerRank == 4) { AddResultSlot(gameObject.name, playerTime); }
+                else
+                {
+                    if (playerRank > 3) { AddResultSlot(aiCarNames[aiIndex++], playerTime - Random.Range(0.5f, 1.5f)); }
+                    else { AddResultSlot(aiCarNames[aiIndex++], playerTime + Random.Range(1f, 10f)); }
+                }
+
+                if (RaceResultData.savedResults.Count < 4)
+                {
+                    AddResultSlot(aiCarNames[aiIndex++], playerTime + Random.Range(1f, 10f));
+                }
+            }
+
+            SceneManager.LoadScene("ResultScene");
         }
+    }
+
+    void AddResultSlot(string carName, float totalTime)
+    {
+        int minutes = Mathf.FloorToInt(totalTime / 60f);
+        int seconds = Mathf.FloorToInt(totalTime % 60f);
+        int milliseconds = Mathf.FloorToInt((totalTime * 1000f) % 1000f);
+        string formattedTime = string.Format("{0:00}'{1:00}''{2:000}", minutes, seconds, milliseconds);
+
+        ParticipantResult result = new ParticipantResult();
+        result.carName = carName.Replace("(Clone)", "").Trim();
+        result.finalTime = formattedTime;
+
+        RaceResultData.savedResults.Add(result);
     }
 
     IEnumerator RainbowRoutine()
@@ -140,10 +233,5 @@ public class LapTracker : MonoBehaviour
             }
             yield return null;
         }
-    }
-
-    public static void ResetRankings()
-    {
-        finishOrder.Clear();
     }
 }

@@ -9,6 +9,7 @@ public class RaceParticipant : MonoBehaviour
     public int finalRank;
 
     // ItemManager가 이 스크립트를 참조하여 순위를 가져갑니다.
+    [HideInInspector]
     public ItemManager itemManager;
 
     void Awake()
