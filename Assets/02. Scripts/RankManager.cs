@@ -10,12 +10,26 @@ public class RankManager : MonoBehaviour
     [Header("HUD UI 연동")]
     public InGameHUDManager hudManager; // HUD 매니저 참조
 
+    private Dictionary<RaceParticipant, ItemManager> itemManagerCache = new Dictionary<RaceParticipant, ItemManager>();
+
     void Start()
     {
-        // 게임 시작 시점에 참가자 리스트의 개수를 HUD에 보냅니다. (예: 4명 가입 시 1 / 4 표시)
+        participants = new List<RaceParticipant>(FindObjectsOfType<RaceParticipant>());
+
+        // 참가자 수 HUD 전달
         if (hudManager != null)
         {
             hudManager.SetupTotalPlayers(participants.Count);
+        }
+
+        // 최적화를 위한 ItemManager 캐싱 로직 (최적화 버전을 쓰셨다면)
+        foreach (var p in participants)
+        {
+            ItemManager im = p.GetComponent<ItemManager>();
+            if (im != null)
+            {
+                itemManagerCache.Add(p, im);
+            }
         }
     }
 
@@ -26,6 +40,24 @@ public class RankManager : MonoBehaviour
 
     void UpdateRanks()
     {
+
+        if (participants.Count == 0)
+        {
+            participants = FindObjectsByType<RaceParticipant>(FindObjectsSortMode.None).ToList();
+
+            // 그래도 0명이면 아직 클론 생성이 덜 된 것이므로 에러 방지를 위해 이번 프레임은 넘깁니다.
+            if (participants.Count == 0) return;
+
+            // 참가자를 찾았으니 HUD에 총 인원수 갱신
+            if (hudManager != null) hudManager.SetupTotalPlayers(participants.Count);
+        }
+
+        if (checkpoints == null || checkpoints.Count == 0)
+        {
+            Debug.LogError("RankManager에 체크포인트가 등록되지 않았습니다! 인스펙터를 확인하세요.");
+            return;
+        }
+
         // 1. 다음 체크포인트까지의 거리 업데이트
         foreach (var p in participants)
         {
@@ -53,14 +85,22 @@ public class RankManager : MonoBehaviour
                 im.currentRank = rank;
             }
 
+            // =======================================================
+            // [여기에 디버깅용 로그 추가] 
+            // 참가자들의 실제 이름과 HUD 연결 상태를 콘솔에 띄워봅니다.
+            //Debug.Log($"[{i}번 순위] 오브젝트 이름: {sortedList[i].gameObject.name} | HUD 연결됨?: {hudManager != null}");
+            // =======================================================
+
             // 정렬된 리스트 중 현재 등수를 부여받은 오브젝트의 태그가 "Player"인 경우 HUD UI를 갱신합니다.
-            if (sortedList[i].gameObject.CompareTag("Player"))
+            if (sortedList[i].gameObject.name.Contains("PlayerCar"))
             {
+                //Debug.Log("PlayerCar 인식 성공! 거리 계산 진입"); // [성공 확인 로그]
+
                 if (hudManager != null)
                 {
                     hudManager.UpdateRank(rank);
 
-                    // --- [추가된 거리 계산 로직] ---
+                    // --- [거리 계산 로직] ---
                     float distAhead = float.MaxValue;
                     float distBehind = float.MaxValue;
                     Vector3 playerPos = sortedList[i].transform.position;
@@ -79,31 +119,17 @@ public class RankManager : MonoBehaviour
 
                     float displayDistance = 0f;
 
-                    if (i == 0 && sortedList.Count > 1)
-                    {
-                        // 플레이어가 1등일 때: 무조건 뒤차와의 거리 표시
-                        displayDistance = distBehind;
-                    }
-                    else if (i == sortedList.Count - 1 && sortedList.Count > 1)
-                    {
-                        // 플레이어가 꼴찌일 때: 무조건 앞차와의 거리 표시
-                        displayDistance = distAhead;
-                    }
+                    if (i == 0 && sortedList.Count > 1) { displayDistance = distBehind; }
+                    else if (i == sortedList.Count - 1 && sortedList.Count > 1) { displayDistance = distAhead; }
                     else if (sortedList.Count > 2)
                     {
-                        // 플레이어가 중간 등수일 때
-                        // 앞차와 뒷차 모두 거리가 50 이상일 경우: 앞차 거리 표시 (추격 상황)
-                        if (distAhead >= 50f && distBehind >= 50f)
-                        {
-                            displayDistance = distAhead;
-                        }
-                        // 그 외: 앞차, 뒷차 중 제일 가까운 거리 표시
-                        else
-                        {
-                            displayDistance = Mathf.Min(distAhead, distBehind);
-                        }
+                        if (distAhead >= 50f && distBehind >= 50f) { displayDistance = distAhead; }
+                        else { displayDistance = Mathf.Min(distAhead, distBehind); }
                     }
 
+                    //Debug.Log($"계산된 최종 거리: {displayDistance}m"); // [값 확인 로그]
+
+                    // 107번째 줄
                     hudManager.UpdateDistanceDisplay(displayDistance);
                 }
             }

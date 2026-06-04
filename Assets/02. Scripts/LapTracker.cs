@@ -34,7 +34,7 @@ public class LapTracker : MonoBehaviour
     {
         yield return null;
 
-        if (gameObject.CompareTag("Player"))
+        if (gameObject.name.Contains("PlayerCar"))
         {
             FindAndSetupSharedUI();
         }
