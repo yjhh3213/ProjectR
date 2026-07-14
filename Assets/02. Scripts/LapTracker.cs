@@ -22,9 +22,12 @@ public class LapTracker : MonoBehaviour
     private float raceStartTime;
     private Coroutine rainbowCoroutine; // 무지개 코루틴 제어용
 
+    private CarController myCarController; // AI 유무 판별을 위한 컴포넌트 변수 추가
+
     void Start()
     {
         myItemManager = GetComponent<ItemManager>();
+        myCarController = GetComponent<CarController>();
         raceStartTime = Time.time;
 
         StartCoroutine(InitUIWithDelay());
@@ -34,7 +37,8 @@ public class LapTracker : MonoBehaviour
     {
         yield return null;
 
-        if (gameObject.name.Contains("PlayerCar"))
+        // 태그 대신 오브젝트 이름 또는 CarController의 AI 여부로 플레이어 본인만 UI를 할당받도록 설정
+        if (gameObject.name.Contains("PlayerCar") || (myCarController != null && !myCarController.isAI))
         {
             FindAndSetupSharedUI();
         }
@@ -67,7 +71,8 @@ public class LapTracker : MonoBehaviour
     {
         if (isFinished) return;
 
-        if (gameObject.CompareTag("Player"))
+        // AI 차량들이 플레이어 UI를 건드리지 못하도록 차단
+        if (gameObject.name.Contains("PlayerCar") || (myCarController != null && !myCarController.isAI))
         {
             UpdateSharedRankUI();
         }
@@ -91,9 +96,13 @@ public class LapTracker : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // 결승선 중복 트리거 방지
         if (Time.time - lastTriggerTime < 3f) return;
 
-        if (other.gameObject.name == "FinishLine" || other.CompareTag("FinishLine"))
+        // 대소문자나 언더바(_) 유무에 상관없이 결승선 오브젝트 및 태그 인식
+        if (other.gameObject.name.ToLower().Contains("finishline") ||
+            other.gameObject.name.ToLower().Contains("finish_line") ||
+            other.CompareTag("FinishLine"))
         {
             lastTriggerTime = Time.time;
             OnPassFinishLine();
@@ -107,19 +116,28 @@ public class LapTracker : MonoBehaviour
         completedLaps++;
 
         RaceParticipant participant = GetComponent<RaceParticipant>();
-        if (participant != null) participant.currentLap = completedLaps + 1;
-
-        UpdateVisuals();
-
-        // ★ [수정됨] 2바퀴를 완료하고 3바퀴째에 돌입하는 순간 무지개 발동
-        if (completedLaps == 2 && gameObject.CompareTag("Player"))
+        if (participant != null)
         {
-            if (rainbowCoroutine == null)
+            participant.currentLap = completedLaps + 1;
+            participant.lastCheckpointIndex = -1;
+        }
+
+        // 플레이어 본인일 때만 UI 비주얼 갱신
+        if (gameObject.name.Contains("PlayerCar") || (myCarController != null && !myCarController.isAI))
+        {
+            UpdateVisuals();
+
+            // 2바퀴 완료 후 최종 3바퀴째(무지개 레이스 단계)에 돌입하는 순간 무지개 효과 발동
+            if (completedLaps == 2)
             {
-                rainbowCoroutine = StartCoroutine(RainbowRoutine());
+                if (rainbowCoroutine == null)
+                {
+                    rainbowCoroutine = StartCoroutine(RainbowRoutine());
+                }
             }
         }
 
+        // 설정된 totalLaps(3바퀴)를 완전히 다 채웠을 때만 최종 완주 처리
         if (completedLaps >= totalLaps)
         {
             CompleteRace();
@@ -128,14 +146,13 @@ public class LapTracker : MonoBehaviour
 
     void UpdateVisuals()
     {
-        if (!gameObject.CompareTag("Player")) return;
-
         if (lapImage == null) FindAndSetupSharedUI();
 
         if (lapImage != null)
         {
-            // ★ [수정됨] 무조건 2로 나누어 1바퀴 통과 시 0.5(반원), 2바퀴 통과 시 1.0(원)을 만듭니다.
-            lapImage.fillAmount = (float)completedLaps / 2f;
+            // totalLaps가 3일 때 분모를 2로 만들어 1바퀴=0.5(반원), 2바퀴=1.0(큰원)이 되도록 유연하게 연산
+            float denominator = Mathf.Max(1f, totalLaps - 1f);
+            lapImage.fillAmount = (float)completedLaps / denominator;
         }
     }
 
@@ -143,7 +160,7 @@ public class LapTracker : MonoBehaviour
     {
         isFinished = true;
 
-        if (gameObject.CompareTag("Player"))
+        if (gameObject.name.Contains("PlayerCar") || (myCarController != null && !myCarController.isAI))
         {
             if (rankText != null) rankText.text = $"<color=yellow>FINISHED!</color>";
 

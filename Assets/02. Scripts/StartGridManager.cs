@@ -49,8 +49,8 @@ public class StartGridManager : MonoBehaviour
 
             float distanceToNext = Vector3.Distance(car.transform.position, targetPos);
 
-            // ★ [핵심 변경] 현재 바퀴의 인덱스 대신 '누적 통과 체크포인트 수(totalWaypointsPassed)'를 곱해줍니다.
-            // 바퀴를 넘어가더라도 이 점수는 계속 누적되므로 역전 버그가 완벽히 치료됩니다.
+            // ★ [핵심 변경] 현재 바퀴의 인덱스 대신 '누적 통과 체크포인트 수(totalWaypointsPassed)'를 곱해줍니다.[cite: 1]
+            // 바퀴를 넘어가더라도 이 점수는 계속 누적되므로 역전 버그가 완벽히 치료됩니다.[cite: 1]
             return (car.totalWaypointsPassed * 10000f) - distanceToNext;
         }).ToList();
 
@@ -77,6 +77,16 @@ public class StartGridManager : MonoBehaviour
             spawnedCar.SetActive(true);
 
             CarController controller = spawnedCar.GetComponent<CarController>();
+
+            // ===================================================================
+            // ★ [추가] 실시간 등수 UI(RankManager)와의 연동을 위해 RaceParticipant 컴포넌트를 강제 확보합니다.
+            // ===================================================================
+            RaceParticipant participant = spawnedCar.GetComponent<RaceParticipant>();
+            if (participant == null)
+            {
+                participant = spawnedCar.AddComponent<RaceParticipant>();
+            }
+            // ===================================================================
 
             if (controller != null)
             {

@@ -13,7 +13,7 @@ EditorBuildSettings:
     guid: ba59a68c8bacacf48b874b57a14309c8
   - enabled: 1
     path: Assets/01. Scenes/MainRacingScene.unity
-    guid: 8fca68694d686be4fbc1fadae7b24f49
+    guid: 0f97ea7ad977b7e48b4c66c54d162f31
   - enabled: 1
     path: Assets/01. Scenes/ResultScene.unity
     guid: a5c70b2b38037294c9b573684e541303

@@ -88,7 +88,21 @@ public class ItemManager : MonoBehaviour
     public void UseItem()
     {
         if (inventoryItem == null || isRolling) return;
-        if (inventoryItem.soundEffect != null) AudioSource.PlayClipAtPoint(inventoryItem.soundEffect, transform.position);
+
+        // 오디오 매니저 인스턴스가 존재할 때, 아이템 이름에 맞춰 효과음을 재생합니다.
+        if (SimpleAudioManager.instance != null)
+        {
+            switch (inventoryItem.itemName)
+            {
+                case "Banana":
+                    SimpleAudioManager.instance.PlayBananaSound(); // 바나나 투척 사운드
+                    break;
+                case "Booster":
+                    SimpleAudioManager.instance.PlayRocketSound(); // 부스터 사용 사운드
+                    break;
+            }
+        }
+
         if (currentItemObject != null) { Destroy(currentItemObject); currentItemObject = null; }
 
         switch (inventoryItem.itemName)
@@ -111,6 +125,13 @@ public class ItemManager : MonoBehaviour
     public void ApplyMissileHit()
     {
         if (IsShielded) return;
+
+        // 미사일에 피격당했을 때 오디오 매니저의 폭탄 사운드를 호출합니다.
+        if (SimpleAudioManager.instance != null)
+        {
+            SimpleAudioManager.instance.PlayBombSound();
+        }
+
         StartCoroutine(StunRoutine(2f));
     }
 
@@ -166,15 +187,12 @@ public class ItemManager : MonoBehaviour
         IsShielded = false;
     }
 
-    // ★ 바나나 생성 위치를 완전히 뒤로 빼주는 핵심 수정 구간
     void ExecuteBanana()
     {
         if (bananaPrefab != null)
         {
-            // 기존 4.5f에서 7.0f로 거리를 대폭 늘려 차체에 걸리지 않도록 방지합니다.
             Vector3 spawnPos = transform.position - (transform.forward * 7.0f);
 
-            // 허공에 뜨지 않도록 스폰 포인트의 높이(y)를 참조합니다.
             if (itemSpawnPoint != null)
             {
                 spawnPos.y = itemSpawnPoint.position.y;

@@ -1,35 +1,37 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class RaceManager : MonoBehaviour
 {
     [Header("트랙에 배치된 4대의 차량")]
-    // 인스펙터에서 차량 4대를 순서대로 넣어주세요.
     public GameObject[] raceCars;
 
     [Header("웨이포인트 설정")]
-    // 165개의 웨이포인트를 담고 있는 부모 오브젝트의 이름을 적어주세요.
     public string waypointGroupName = "Waypoints_Group";
 
     private List<Transform> waypointList = new List<Transform>();
+    private List<RaceParticipant> participantComponents = new List<RaceParticipant>();
 
     void Start()
     {
-        // 1. 165개의 웨이포인트를 자동으로 리스트에 담기
         SetupWaypoints();
-
-        // 2. 플레이어와 AI 배정하기
         AssignBrainsToCars();
+        CacheParticipants();
+    }
+
+    void Update()
+    {
+        // 매 프레임(프레임 단위) 순위 재집계 연산 실행
+        CalculateRealtimeRankings();
     }
 
     private void SetupWaypoints()
     {
-        // 이름으로 부모 오브젝트를 찾습니다.
         GameObject group = GameObject.Find(waypointGroupName);
         if (group != null)
         {
-            // 부모 안의 모든 자식(웨이포인트)을 순서대로 리스트에 추가합니다.
             foreach (Transform child in group.transform)
             {
                 waypointList.Add(child);
@@ -44,7 +46,6 @@ public class RaceManager : MonoBehaviour
 
     private void AssignBrainsToCars()
     {
-        // 로비에서 저장된 인덱스 가져오기 (기본값 0)
         int playerCarIndex = PlayerPrefs.GetInt("SelectedCarIndex", 0);
 
         for (int i = 0; i < raceCars.Length; i++)
@@ -52,35 +53,73 @@ public class RaceManager : MonoBehaviour
             GameObject currentCar = raceCars[i];
             if (currentCar == null) continue;
 
-            // 모든 차의 CarController 컴포넌트를 가져옵니다.
             CarController controller = currentCar.GetComponent<CarController>();
 
             if (i == playerCarIndex)
             {
-                // --- 플레이어 설정 ---
-                if (controller != null)
-                {
-                    controller.isAI = false; // AI 끄기
-                }
+                if (controller != null) controller.isAI = false;
 
-                // 카메라가 플레이어를 쫓아가도록 설정
                 CameraFollow camFollow = Camera.main.GetComponent<CameraFollow>();
-                if (camFollow != null)
-                {
-                    camFollow.target = currentCar.transform;
-                }
-
-                Debug.Log(currentCar.name + "가 플레이어로 배정되었습니다.");
+                if (camFollow != null) camFollow.target = currentCar.transform;
             }
             else
             {
-                // --- AI 설정 ---
                 if (controller != null)
                 {
-                    controller.isAI = true; // AI 켜기
-                    controller.waypoints = waypointList; // 165개 웨이포인트 전달
+                    controller.isAI = true;
+                    controller.waypoints = waypointList;
                 }
-                Debug.Log(currentCar.name + "가 AI로 배정되었습니다.");
+            }
+        }
+    }
+
+    private void CacheParticipants()
+    {
+        foreach (GameObject car in raceCars)
+        {
+            if (car != null)
+            {
+                RaceParticipant p = car.GetComponent<RaceParticipant>();
+                if (p == null) p = car.AddComponent<RaceParticipant>();
+
+                participantComponents.Add(p);
+            }
+        }
+    }
+
+    private void CalculateRealtimeRankings()
+    {
+        if (participantComponents.Count == 0) return;
+
+        // 프레임 단위 다중 스코어 연산 정렬법
+        var sortedList = participantComponents
+            .OrderByDescending(p =>
+            {
+                // 1. 바퀴 수 (최우선순위 가중치)
+                float lapScore = p.currentLap * 1000000f;
+
+                // 2. 마지막 통과 상자 인덱스 (차선순위 가중치)
+                float checkpointScore = Mathf.Max(0, p.lastCheckpointIndex) * 10000f;
+
+                // 3. 다음 상자까지 남은 거리 패널티 (동률일 때 미세한 거리 앞선 차량 우대)
+                float distancePenalty = p.distanceToNextCheckpoint;
+
+                // 세 가지 요소를 연산하여 최종 진행 스코어 리턴
+                return lapScore + checkpointScore - distancePenalty;
+            })
+            .ToList();
+
+        // 실시간 연산된 등수를 정렬 순서대로 1~4등 주입
+        for (int i = 0; i < sortedList.Count; i++)
+        {
+            int assignedRank = i + 1;
+            sortedList[i].currentRank = assignedRank;
+
+            // 아이템 확률에 영향을 주는 ItemManager에도 실시간 동기화
+            ItemManager itemManager = sortedList[i].GetComponent<ItemManager>();
+            if (itemManager != null)
+            {
+                itemManager.currentRank = assignedRank;
             }
         }
     }
