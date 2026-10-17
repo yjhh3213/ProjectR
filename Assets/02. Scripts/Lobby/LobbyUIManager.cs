@@ -12,15 +12,24 @@ public class LobbyUIManager : MonoBehaviour
     public GameObject selectionPanel;
     public GameObject startEngineButton;
 
+    [Header("종료 확인 UI 패널")]
+    public GameObject quitPanel; // 종료 확인 패널 연결용
+
     [Header("버튼 색상 설정")]
     public Color normalColor = new Color(1f, 1f, 1f, 0f);       // 평소 (투명)
     public Color selectedColor = new Color(1f, 0.16f, 0.16f, 1f); // 선택됨 (예: 레이싱 레드)
 
+    // ★ [핵심 추가] 매치 타입별로 이동할 씬(Scene) 이름 설정
+    [Header("이동할 씬(Scene) 이름 설정")]
+    public string aiModeSceneName = "MainRacingScene"; // AI 모드 씬 이름 (인스펙터에서 수정 가능)
+    public string taModeSceneName = "MainRacingTimeAttackScene"; // 타임어택 모드 씬 이름 (인스펙터에서 수정 가능)
+
     // 각 섹션의 현재 선택된 버튼을 기억할 변수
     private Image currentMatchBtnImage;
     private Image currentCarBtnImage;
+    private Image currentInputBTnImage;
 
-    private bool isModeSelected = true; // 아케이드는 고정
+    private bool isInputSelected = true; // 아케이드는 고정
     private bool isMatchSelected = false;
     private bool isCarSelected = false;
 
@@ -40,22 +49,40 @@ public class LobbyUIManager : MonoBehaviour
         selectionPanel.SetActive(true);
     }
 
+    public void SelectInputType(int inputType)
+    {
+        // inputType == 0 : 키보드 (자동 변속)
+        // inputType == 1 : 레이싱 휠 (수동 변속)
+        PlayerPrefs.SetInt("InputType", inputType);
+
+        isInputSelected = true;
+        CheckReadyToStart();
+    }
+
+    public void SetInputButtonVisual(Image clickedImage)
+    {
+        if (currentInputBTnImage != null) currentInputBTnImage.color = normalColor;
+
+        currentInputBTnImage = clickedImage;
+        currentInputBTnImage.color = selectedColor;
+
+        isInputSelected = true;
+        CheckReadyToStart();
+    }
+
     public void SelectMatchType(int matchType)
     {
-        // 1. 현재 버튼 찾기 (이 함수를 호출한 버튼의 Image 컴포넌트를 넘겨받아야 함)
-        // 아래 '유니티 세팅' 설명 참고
+        // matchType == 0 : AI전
+        // matchType == 1 : TA (타임어택)
         PlayerPrefs.SetInt("MatchType", matchType);
         isMatchSelected = true;
         CheckReadyToStart();
     }
 
-    // 가독성을 위해 추천하는 방식: 버튼 이미지를 직접 제어하는 함수
     public void SetMatchButtonVisual(Image clickedImage)
     {
-        // 기존에 선택됐던 버튼이 있다면 평소 색으로 되돌림
         if (currentMatchBtnImage != null) currentMatchBtnImage.color = normalColor;
 
-        // 새로 클릭한 버튼을 선택 색상으로 변경
         currentMatchBtnImage = clickedImage;
         currentMatchBtnImage.color = selectedColor;
 
@@ -74,39 +101,86 @@ public class LobbyUIManager : MonoBehaviour
         CheckReadyToStart();
     }
 
-    // 차량 버튼을 누를 때마다 호출됨 (버튼 Inspector에서 0, 1, 2, 3 할당)
     public void SelectCar(int carIndex)
     {
         PlayerPrefs.SetInt("SelectedCarIndex", carIndex);
         isCarSelected = true;
-        // 배경의 3D 자동차 모델 교체!
-        UpdateShowroomCar(carIndex);
 
+        UpdateShowroomCar(carIndex);
         CheckReadyToStart();
     }
 
-    // 선택한 번호의 차만 켜고 나머지는 끄는 함수
     private void UpdateShowroomCar(int indexToShow)
     {
         for (int i = 0; i < showroomCars.Length; i++)
         {
             if (i == indexToShow)
-                showroomCars[i].SetActive(true); // 선택된 차 켜기
+                showroomCars[i].SetActive(true);
             else
-                showroomCars[i].SetActive(false); // 나머지 끄기
+                showroomCars[i].SetActive(false);
         }
     }
 
     private void CheckReadyToStart()
     {
-        if (isModeSelected && isMatchSelected && isCarSelected)
+        if (isInputSelected && isMatchSelected && isCarSelected)
         {
-            startEngineButton.SetActive(true); // TODO: Animator Trriger로 스르륵 나타나게 하면 더 좋습니다.
+            startEngineButton.SetActive(true);
         }
     }
 
+    // ★ [핵심 수정] 매치 타입(0 또는 1)을 불러와 해당하는 씬으로 전환합니다.
     public void StartGame()
     {
-        SceneManager.LoadScene("MainRacingScene");
+        // 저장된 매치 타입을 불러옵니다. (기본값은 0)
+        int matchType = PlayerPrefs.GetInt("MatchType", 0);
+
+        if (matchType == 0) // AI 모드
+        {
+            Debug.Log("AI 모드로 진입합니다: " + aiModeSceneName);
+            SceneManager.LoadScene(aiModeSceneName);
+        }
+        else if (matchType == 1) // TA (타임어택) 모드
+        {
+            Debug.Log("TA 모드로 진입합니다: " + taModeSceneName);
+            SceneManager.LoadScene(taModeSceneName);
+        }
+    }
+
+    public void CloseSelectionPanel()
+    {
+        selectionPanel.SetActive(false);
+        flagButton.SetActive(true);
+
+        // 닫을 때 선택 상태 초기화
+        isInputSelected = false;
+        isMatchSelected = false;
+        isCarSelected = false;
+        startEngineButton.SetActive(false);
+
+        if (currentMatchBtnImage != null) currentMatchBtnImage.color = normalColor;
+        if (currentCarBtnImage != null) currentCarBtnImage.color = normalColor;
+        if (currentInputBTnImage != null) currentInputBTnImage.color = normalColor;
+    }
+
+    public void OpenQuitPanel()
+    {
+        quitPanel.SetActive(true);
+    }
+
+    public void CloseQuitPanel()
+    {
+        quitPanel.SetActive(false);
+    }
+
+    public void QuitGame()
+    {
+        Debug.Log("게임을 종료합니다.");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 }

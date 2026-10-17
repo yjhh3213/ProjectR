@@ -4,28 +4,47 @@ using System.Collections.Generic;
 
 public class ItemManager : MonoBehaviour
 {
-    [Header("아이템 리스트")]
-    public List<ItemData> allItems; // 모든 ItemData 등록
-    public ItemData inventoryItem;  // 현재 소지 아이템
-    public bool isRolling = false;  // 4.6.2 상태 확인
+    [Header("연결된 컴포넌트")]
+    private CarController carController;
+    private ArcadeCarController arcadeCar;
+    private MeshRenderer[] carRenderers;
 
-    [Header("3D 연출 설정 (추가된 부분)")]
-    public Transform itemSpawnPoint;    // 자동차 위 빈 오브젝트 연결
-    private GameObject currentItemObject; // 자동차 위 생성된 물체 저장 변수
+    [Header("아이템 데이터 & 상태")]
+    public List<ItemData> allItems;
+    public ItemData inventoryItem;
+    public bool isRolling = false;
 
-    [Header("현재 상태")]
-    public int currentRank = 1;     // 레이싱 시스템 연동
+    [Header("실시간 등수 (StartGridManager 연동)")]
+    public int currentRank = 1;
 
-    // 업데이트 문에서 사용 키 입력 감지 (추가)
+    [Header("이펙트 설정")]
+    public GameObject smokeEffect;
+    public GameObject blueBoostEffect;
+    public GameObject bananaPrefab;
+    public Transform itemSpawnPoint;
+    private GameObject currentItemObject;
+
+    public bool IsShielded { get; private set; } = false;
+    public bool IsDevilAffected { get; private set; } = false;
+    public bool IsStunned { get; private set; } = false;
+
+    void Start()
+    {
+        carController = GetComponent<CarController>();
+        arcadeCar = GetComponent<ArcadeCarController>();
+        carRenderers = GetComponentsInChildren<MeshRenderer>();
+        if (smokeEffect) smokeEffect.SetActive(false);
+        if (blueBoostEffect) blueBoostEffect.SetActive(false);
+    }
+
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.LeftControl)) // 왼쪽 Ctrl 키로 사용
+        if (carController != null && !carController.isAI)
         {
-            UseItem();
+            if (Input.GetKeyDown(KeyCode.LeftControl)) UseItem();
         }
     }
 
-    // --- 아이템 획득 로직 ---
     public void StartGetItemRoutine()
     {
         if (isRolling || inventoryItem != null) return;
@@ -35,107 +54,251 @@ public class ItemManager : MonoBehaviour
     IEnumerator GetItemCoroutine()
     {
         isRolling = true;
-        Debug.Log("아이템 추첨 중...");
-
-        // 4.6.1 연출시간(2초)
         yield return new WaitForSeconds(2f);
 
-        // 1. 등수별 타입 결정
         ItemType selectedType = DecideTypeByRank(currentRank);
-        // 2. 타입 내 세부 아이템 결정
         inventoryItem = DecideSpecificItem(currentRank, selectedType);
 
         if (inventoryItem != null)
         {
-            Debug.Log($"아이템 결정: {inventoryItem.itemName}");
+            Debug.Log($"<color=lime>[아이템 획득]</color> 이름: {gameObject.name} | 실시간 등수: {currentRank}등 | 뽑힌 아이템: {inventoryItem.itemName}");
 
-            // --- [수정된 부분] 3D 프리팹 생성 및 지붕 부착 ---
             if (itemSpawnPoint != null && inventoryItem.worldPrefab != null)
             {
-                // 이미 머리 위에 뭐가 있다면 삭제
                 if (currentItemObject != null) Destroy(currentItemObject);
-
-                // 프리팹 생성
                 currentItemObject = Instantiate(inventoryItem.worldPrefab, itemSpawnPoint.position, itemSpawnPoint.rotation);
-
-                // 자동차의 자식으로 설정 (그래야 같이 움직임)
                 currentItemObject.transform.SetParent(itemSpawnPoint);
-
-                // 위치 초기화 (스폰포인트 정중앙)
                 currentItemObject.transform.localPosition = Vector3.zero;
             }
         }
-
         isRolling = false;
+
+        if (carController != null && carController.isAI && inventoryItem != null)
+        {
+            StartCoroutine(AIWaitAndUseItem(5f));
+        }
     }
 
-    // --- 4.2 ~ 4.5 등수별 확률 변동 테이블 (이전과 동일) ---
+    IEnumerator AIWaitAndUseItem(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (inventoryItem != null) UseItem();
+    }
+
+    public void UseItem()
+    {
+        if (inventoryItem == null || isRolling) return;
+
+        // 오디오 매니저 인스턴스가 존재할 때, 아이템 이름에 맞춰 효과음을 재생합니다.
+        if (SimpleAudioManager.instance != null)
+        {
+            switch (inventoryItem.itemName)
+            {
+                case "Banana":
+                    SimpleAudioManager.instance.PlayBananaSound(); // 바나나 투척 사운드
+                    break;
+                case "Booster":
+                    SimpleAudioManager.instance.PlayRocketSound(); // 부스터 사용 사운드
+                    break;
+            }
+        }
+
+        if (currentItemObject != null) { Destroy(currentItemObject); currentItemObject = null; }
+
+        switch (inventoryItem.itemName)
+        {
+            case "Missile": ExecuteMissile(); break;
+            case "Devil": ExecuteDevil(); break;
+            case "Booster": StartCoroutine(BoosterRoutine()); break;
+            case "Shield": StartCoroutine(ShieldRoutine()); break;
+            case "Banana": ExecuteBanana(); break;
+        }
+        inventoryItem = null;
+    }
+
+    void ExecuteMissile()
+    {
+        GameObject target = FindClosestForwardVehicle();
+        if (target != null) target.GetComponent<ItemManager>().ApplyMissileHit();
+    }
+
+    public void ApplyMissileHit()
+    {
+        if (IsShielded) return;
+
+        // 미사일에 피격당했을 때 오디오 매니저의 폭탄 사운드를 호출합니다.
+        if (SimpleAudioManager.instance != null)
+        {
+            SimpleAudioManager.instance.PlayBombSound();
+        }
+
+        StartCoroutine(StunRoutine(2f));
+    }
+
+    IEnumerator StunRoutine(float duration)
+    {
+        IsStunned = true;
+        if (smokeEffect) smokeEffect.SetActive(true);
+        float originalSpeed = arcadeCar.maxSpeedKmh;
+        arcadeCar.maxSpeedKmh = 0f;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null) { rb.velocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+        if (carController != null && carController.isAI) { arcadeCar.verticalInput = 0f; arcadeCar.horizontalInput = 0f; }
+
+        yield return new WaitForSeconds(duration);
+        arcadeCar.maxSpeedKmh = originalSpeed;
+        if (smokeEffect) smokeEffect.SetActive(false);
+        IsStunned = false;
+    }
+
+    void ExecuteDevil()
+    {
+        ItemManager[] allManagers = FindObjectsByType<ItemManager>(FindObjectsSortMode.None);
+        foreach (var im in allManagers) if (im != this) im.StartCoroutine(im.DevilRoutine());
+    }
+
+    public IEnumerator DevilRoutine()
+    {
+        if (IsShielded) yield break;
+        IsDevilAffected = true;
+        ChangeCarColor(new Color(0.6f, 0f, 0.6f));
+        yield return new WaitForSeconds(Random.Range(5f, 10f));
+        ChangeCarColor(Color.white);
+        IsDevilAffected = false;
+    }
+
+    IEnumerator BoosterRoutine()
+    {
+        if (blueBoostEffect) { blueBoostEffect.SetActive(true); blueBoostEffect.transform.localPosition = new Vector3(0f, 0.5f, -2f); }
+        float originalMax = arcadeCar.maxSpeedKmh;
+        arcadeCar.maxSpeedKmh *= 1.5f;
+        yield return new WaitForSeconds(Random.Range(3f, 4f));
+        arcadeCar.maxSpeedKmh = originalMax;
+        if (blueBoostEffect) blueBoostEffect.SetActive(false);
+    }
+
+    IEnumerator ShieldRoutine()
+    {
+        IsShielded = true;
+        ChangeCarColor(Color.blue);
+        yield return new WaitForSeconds(3f);
+        ChangeCarColor(Color.white);
+        IsShielded = false;
+    }
+
+    void ExecuteBanana()
+    {
+        if (bananaPrefab != null)
+        {
+            Vector3 spawnPos = transform.position - (transform.forward * 7.0f);
+
+            if (itemSpawnPoint != null)
+            {
+                spawnPos.y = itemSpawnPoint.position.y;
+            }
+            else
+            {
+                spawnPos.y = 0.1f;
+            }
+
+            Instantiate(bananaPrefab, spawnPos, Quaternion.identity);
+        }
+    }
+
+    public void OnStepBanana()
+    {
+        if (IsShielded) return;
+        StartCoroutine(BananaSlippingRoutine());
+    }
+
+    IEnumerator BananaSlippingRoutine()
+    {
+        if (arcadeCar == null) yield break;
+        float originalSpeed = arcadeCar.maxSpeedKmh;
+        float originalGrip = arcadeCar.currentGrip;
+        arcadeCar.maxSpeedKmh = 10f;
+        arcadeCar.currentGrip = 0.02f;
+        arcadeCar.SendMessage("SetSkidMarks", true, SendMessageOptions.DontRequireReceiver);
+        yield return new WaitForSeconds(Random.Range(2f, 3f));
+        arcadeCar.SendMessage("SetSkidMarks", false, SendMessageOptions.DontRequireReceiver);
+        arcadeCar.maxSpeedKmh = originalSpeed;
+        arcadeCar.currentGrip = originalGrip;
+    }
+
     ItemType DecideTypeByRank(int rank)
     {
-        float r = Random.Range(0, 10);
-        switch (rank)
+        int r = Random.Range(0, 100);
+
+        if (rank <= 1)
         {
-            case 1: return (r < 9) ? ItemType.Defense : ItemType.Neutral;
-            case 2: return (r < 2) ? ItemType.Attack : (r < 8) ? ItemType.Defense : ItemType.Neutral;
-            case 3: return (r < 4) ? ItemType.Attack : (r < 6) ? ItemType.Defense : ItemType.Neutral;
-            case 4: return (r < 4) ? ItemType.Attack : ItemType.Neutral;
-            default: return ItemType.Neutral;
+            return (r < 85) ? ItemType.Defense : ItemType.Neutral;
+        }
+        else if (rank == 2)
+        {
+            if (r < 40) return ItemType.Attack;
+            if (r < 70) return ItemType.Defense;
+            return ItemType.Neutral;
+        }
+        else
+        {
+            return (r < 70) ? ItemType.Attack : ItemType.Neutral;
         }
     }
 
     ItemData DecideSpecificItem(int rank, ItemType type)
     {
         float r = Random.value;
-        string targetName = "";
+
+        if (rank >= 3)
+        {
+            if (type == ItemType.Attack)
+            {
+                return (rank == 4 && r < 0.7f) ? allItems.Find(x => x.itemName == "Devil") : allItems.Find(x => x.itemName == "Missile");
+            }
+            return allItems.Find(x => x.itemName == "Booster");
+        }
+
+        string targetName = "Booster";
 
         if (type == ItemType.Attack)
         {
-            float missileProb = (rank == 2) ? 0.5f : (rank == 3) ? 0.6f : 0.2f;
-            targetName = (r < missileProb) ? "Missile" : "Devil";
+            targetName = "Missile";
         }
         else if (type == ItemType.Defense)
         {
-            float shieldProb = (rank == 1) ? 0.3f : (rank == 2) ? 0.6f : 0.8f;
-            targetName = (r < shieldProb) ? "Shield" : "Banana";
+            targetName = (rank == 1 && r < 0.75f) ? "Banana" : "Shield";
         }
-        else { targetName = "Booster"; }
 
         return allItems.Find(x => x.itemName == targetName);
     }
 
-    // --- 4.1 아이템 실행 로직 ---
-    public void UseItem()
+    void ChangeCarColor(Color color)
     {
-        if (inventoryItem == null || isRolling) return;
-
-        // 사운드 재생
-        if (inventoryItem.soundEffect != null)
-            AudioSource.PlayClipAtPoint(inventoryItem.soundEffect, transform.position);
-
-        // --- [수정된 부분] 사용 시 머리 위 3D 오브젝트 삭제 ---
-        if (currentItemObject != null)
+        if (carRenderers != null)
         {
-            Destroy(currentItemObject);
-            currentItemObject = null;
+            foreach (var r in carRenderers) if (r != null && r.material.HasProperty("_Color")) r.material.color = color;
         }
-
-        // 아이템별 효과 함수 호출
-        switch (inventoryItem.itemName)
-        {
-            case "Missile": ExecuteMissile(); break;
-            case "Devil": ExecuteDevil(); break;
-            case "Booster": ExecuteBooster(); break;
-            case "Shield": ExecuteShield(); break;
-            case "Banana": ExecuteBanana(); break;
-        }
-
-        inventoryItem = null; // 소지 아이템 데이터 초기화
     }
 
-    // --- 개별 효과 구현 ---
-    void ExecuteMissile() { Debug.Log("미사일 발사 기능 실행"); }
-    void ExecuteDevil() { Debug.Log("대마왕 효과 실행"); }
-    void ExecuteBooster() { Debug.Log("부스터 효과 실행"); }
-    void ExecuteShield() { Debug.Log("쉴드 효과 실행"); }
-    void ExecuteBanana() { Debug.Log("바나나 설치 기능 실행"); }
+    GameObject FindClosestForwardVehicle()
+    {
+        GameObject[] cars = GameObject.FindGameObjectsWithTag("Player");
+        GameObject closest = null;
+        MinDistanceLogic(cars, ref closest);
+        return closest;
+    }
+
+    private void MinDistanceLogic(GameObject[] cars, ref GameObject closest)
+    {
+        float minDistance = Mathf.Infinity;
+        foreach (GameObject car in cars)
+        {
+            if (car == this.gameObject) continue;
+            float distance = Vector3.Distance(transform.position, car.transform.position);
+            Vector3 targetDir = car.transform.position - transform.position;
+            float angle = Vector3.Angle(transform.forward, targetDir);
+            if (angle < 45f && distance < minDistance) { minDistance = distance; closest = car; }
+        }
+    }
 }
