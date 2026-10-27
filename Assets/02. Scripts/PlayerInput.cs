@@ -10,7 +10,7 @@ public class PlayerInput : MonoBehaviour
     public bool useRacingWheel = true;
 
     [Header("휠 조향 감도 설정")]
-    public float physicalWheelAngle = 900f;
+    public float physicalWheelAngle = 450f;
     public float targetSteeringAngle = 90f;
 
     void Start()

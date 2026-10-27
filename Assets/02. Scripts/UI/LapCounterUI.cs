@@ -1,47 +1,65 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
+using System.Collections.Generic;
 
 public class LapCounterUI : MonoBehaviour
 {
     [Header("UI 연결")]
-    public Image segment1; // 오른쪽 반원 (Lap 1)
-    public Image segment2; // 왼쪽 반원 (Lap 2)
-    //public TextMeshProUGUI lapText; // "LAP 1 / 2" 텍스트
+    public List<Image> segment; // 이미지 컴포넌트 리스트
+    public List<GameObject> Segment; // 활성화/비활성화할 UI 게임오브젝트 리스트
 
     [Header("색상 설정")]
     public Color offColor = new Color(0.2f, 0.2f, 0.2f, 0.5f); // 꺼진 색상 (반투명 회색)
-    public Color onColor = Color.cyan; // 달리고 있을 때 색상 (예: 시안 블루)
-    public Color finishColor = Color.yellow; // 완주했을 때 터지는 노란색
+    public Color onColor = Color.cyan; // 달리고 있을 때 색상
+    public Color finishColor = Color.yellow; // 완주 색상
+
+    private TimeAttackManager timeAttackManager;
 
     void Start()
     {
-        // 게임 시작 시 1랩 상태로 셋업
-        UpdateLap(1);
+        // 씬에 있는 TimeAttackManager를 찾아 연결합니다.
+        timeAttackManager = FindAnyObjectByType<TimeAttackManager>();
+
+        if (timeAttackManager == null)
+        {
+            Debug.LogError("[LapCounterUI] 씬에서 TimeAttackManager를 찾을 수 없습니다!");
+        }
+
+        // 시작할 때 모든 세그먼트 비활성화
+        if (Segment != null)
+        {
+            foreach (var seg in Segment)
+            {
+                if (seg != null) seg.SetActive(false);
+            }
+        }
     }
 
-    // 외부(RaceManager 등)에서 플레이어가 체크포인트를 지나 랩이 오를 때마다 이 함수를 호출합니다.
+    void LateUpdate()
+    {
+        if (timeAttackManager != null)
+        {
+            // TimeAttackManager의 현재 섹터 인덱스를 가져와서 UI 갱신
+            UpdateLap(timeAttackManager.currentSectorIndex);
+        }
+    }
+
     public void UpdateLap(int currentLap)
     {
-        if (currentLap == 1)
+        if (Segment == null || segment == null) return;
+
+        // currentLap(통과한 섹터 수)에 맞춰 순차적으로 활성화
+        for (int i = 0; i < Segment.Count; i++)
         {
-            segment1.color = onColor;   // 1분할 빛남
-            segment2.color = offColor;  // 나머지 꺼짐
-            //lapText.text = "LAP 1 / 2";
+            if (Segment[i] != null && i <= currentLap - 1)
+            {
+                Segment[i].SetActive(true); // 이제 정상적으로 켜집니다!
+
+                if (i < segment.Count && segment[i] != null)
+                {
+                    segment[i].color = onColor;
+                }
+            }
         }
-        else if (currentLap == 2)
-        {
-            segment1.color = onColor;   // 1분할 유지
-            segment2.color = onColor;   // 2분할도 빛남
-            //lapText.text = "LAP 2 / 2";
-        }
-        /*else if (currentLap > 2)
-        {
-            // 완주 연출: 전체가 노란색으로 변함
-            segment1.color = finishColor;
-            segment2.color = finishColor;
-            lapText.text = "FINISH!";
-            lapText.color = finishColor; // 글씨도 노란색으로 통일하면 더 멋집니다!
-        }*/
     }
 }

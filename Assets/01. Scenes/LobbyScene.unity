@@ -1649,7 +1649,7 @@ MonoBehaviour:
   normalColor: {r: 1, g: 1, b: 1, a: 0}
   selectedColor: {r: 0.9973854, g: 1, b: 0, a: 1}
   aiModeSceneName: MainRacingScene
-  taModeSceneName: MainRacingTimeAttackScene
+  taModeSceneName: TimeAttack
 --- !u!4 &673884442
 Transform:
   m_ObjectHideFlags: 0
