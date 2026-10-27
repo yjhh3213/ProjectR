@@ -15,6 +15,7 @@ public class PurePedalScanner : MonoBehaviour
 
         try
         {
+
             float rawAccel = Input.GetAxisRaw("AccelWheel");
             float rawBrake = Input.GetAxisRaw("BrakeWheel");
 

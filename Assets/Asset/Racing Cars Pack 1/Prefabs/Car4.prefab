@@ -199,6 +199,7 @@ GameObject:
   - component: {fileID: 1936434249221495073}
   - component: {fileID: 6899175645252101742}
   - component: {fileID: 3098429793350654921}
+  - component: {fileID: -52988604841116195}
   m_Layer: 0
   m_Name: Car4
   m_TagString: Player
@@ -440,6 +441,14 @@ MonoBehaviour:
   - {fileID: 0}
   arrivalDistance: 20
   totalWaypointsPassed: 0
+  aiGearShiftSpeeds:
+  - 0
+  - 40
+  - 80
+  - 120
+  - 160
+  - 200
+  shiftCooldown: 0.5
 --- !u!114 &1936434249221495073
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -500,6 +509,32 @@ MonoBehaviour:
   lapImage: {fileID: 0}
   rankText: {fileID: 0}
   totalLaps: 3
+--- !u!114 &-52988604841116195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1386163471376036454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73a3e92af99405d4aba51e8d002cfa48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainCamera: {fileID: 0}
+  postProcessVolume: {fileID: 0}
+  useControllerMaxSpeed: 1
+  manualMaxSpeedKmh: 250
+  minFOV: 60
+  maxFOV: 85
+  fovLerpSpeed: 5
+  minBlurIntensity: 0.1
+  maxBlurIntensity: 0.8
+  minChromatic: 0
+  maxChromatic: 0.7
+  minVignette: 0.1
+  maxVignette: 0.4
+  speedSmoothSpeed: 4
 --- !u!1 &1697192241150445145
 GameObject:
   m_ObjectHideFlags: 0

@@ -83,21 +83,54 @@ public class ArcadeCarController : MonoBehaviour
         rb.AddForce(transform.forward * driftBoostForce, ForceMode.VelocityChange);
     }
 
-    public void ShiftUp() { if (currentGear < gearRatios.Length) currentGear++; }
-    public void ShiftDown() { if (currentGear > 1) currentGear--; }
+    public void ShiftUp()
+    {
+        if (currentGear == -1)
+        {
+            currentGear = 1; // 후진에서 업시프트하면 1단으로 복귀
+            Debug.Log("기어 변속: 1단");
+        }
+        else if (currentGear < gearRatios.Length)
+        {
+            currentGear++;
+            Debug.Log("기어 변속 업: " + currentGear + "단");
+        }
+    }
+
+    public void ShiftDown()
+    {
+        if (currentGear > 1)
+        {
+            currentGear--;
+            Debug.Log("기어 변속 다운: " + currentGear + "단");
+        }
+        else if (currentGear == 1)
+        {
+            currentGear = -1; // 1단에서 다운시프트하면 후진(-1단)으로 진입!
+            Debug.Log("기어 변속: 후진(-1단)");
+        }
+    }
 
     private void HandleMotor()
     {
         float forwardVelocity = Vector3.Dot(transform.forward, rb.velocity);
         float currentSpeedKmh = forwardVelocity * 3.6f;
 
-        float topGearRatio = gearRatios[gearRatios.Length - 1];
-        float currentGearRatio = gearRatios[currentGear - 1];
+        float currentGearMaxSpeed = 250f;
 
-        float currentGearMaxSpeed = maxSpeedKmh * (topGearRatio / currentGearRatio);
-        float gearAccelMultiplier = Mathf.Clamp(currentGearRatio / topGearRatio, 1f, 2.5f);
+        switch (currentGear)
+        {
+            case -1: currentGearMaxSpeed = 45f; break;  // 후진 최대 속도 45km/h 제한
+            case 1: currentGearMaxSpeed = 45f; break;   // 1단: 45km/h 제한
+            case 2: currentGearMaxSpeed = 85f; break;   // 2단
+            case 3: currentGearMaxSpeed = 130f; break;  // 3단
+            case 4: currentGearMaxSpeed = 175f; break;  // 4단
+            case 5: currentGearMaxSpeed = 215f; break;  // 5단
+            case 6: currentGearMaxSpeed = maxSpeedKmh; break; // 6단 (최고속도)
+            default: currentGearMaxSpeed = 0f; break;
+        }
 
-        float currentMotorPower = motorForce * gearAccelMultiplier;
+        float currentMotorPower = motorForce;
 
         if (isDrifting)
         {
@@ -105,37 +138,46 @@ public class ArcadeCarController : MonoBehaviour
             currentMotorPower *= (driftAccelPenalty * turnPenalty);
         }
 
-        // 1. 악셀을 밟을 때 (전진)
-        if (verticalInput > 0)
+        // 1. 후진 기어(-1단) 상태에서 S키(음수 입력)를 누를 때
+        if (currentGear == -1 && verticalInput < 0)
+        {
+            float reverseSpeedKmh = Mathf.Abs(currentSpeedKmh);
+
+            // 후진 최대 속도(45km/h) 미만일 때만 뒤로 가속
+            if (reverseSpeedKmh < currentGearMaxSpeed)
+            {
+                float speedRatio = 1f - (reverseSpeedKmh / currentGearMaxSpeed);
+                speedRatio = Mathf.Clamp(speedRatio, 0.1f, 1f);
+
+                // 뒤쪽 방향(-transform.forward)으로 힘을 가함 (S키 입력이 음수이므로 절댓값 활용)
+                rb.AddForce(-transform.forward * currentMotorPower * Mathf.Abs(verticalInput) * speedRatio, ForceMode.Force);
+            }
+        }
+        // 2. 전진 주행 중일 때 (W키 또는 기본 가속)
+        else if (verticalInput > 0)
         {
             if (currentSpeedKmh < currentGearMaxSpeed)
             {
                 float speedRatio = 1f - (currentSpeedKmh / currentGearMaxSpeed);
                 speedRatio = Mathf.Clamp(speedRatio, 0.1f, 1f);
 
-                // ForceMode.Force 적용: 이제 질량(Mass)의 영향을 받아 서서히 가속됩니다!
                 rb.AddForce(transform.forward * currentMotorPower * verticalInput * speedRatio, ForceMode.Force);
             }
         }
-        // 2. 브레이크를 밟을 때 (감속 및 후진)
-        else if (verticalInput < 0)
+        // 3. 브레이크를 밟을 때
+        else if (verticalInput < 0 && currentGear != -1)
         {
             if (forwardVelocity > 1.0f)
             {
                 rb.AddForce(-transform.forward * brakeForce, ForceMode.Force);
             }
-            else
-            {
-                rb.AddForce(transform.forward * reverseForce * verticalInput, ForceMode.Force);
-            }
         }
-        // 3. 발을 뗐을 때 (관성 주행 / 엔진 브레이크)
+        // 4. 발을 뗐을 때 (관성 주행)
         else
         {
-            if (forwardVelocity > 0.1f)
+            if (Mathf.Abs(forwardVelocity) > 0.1f)
             {
-                // Drag 값을 낮춘 대신, 여기서 부드럽게 감속시켜 진짜 자동차가 굴러가는 느낌을 줍니다.
-                rb.AddForce(-transform.forward * coastingFriction, ForceMode.Force);
+                rb.AddForce(-rb.velocity.normalized * coastingFriction, ForceMode.Force);
             }
         }
     }

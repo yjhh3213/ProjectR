@@ -54,6 +54,7 @@ public class LobbyUIManager : MonoBehaviour
         // inputType == 0 : 키보드 (자동 변속)
         // inputType == 1 : 레이싱 휠 (수동 변속)
         PlayerPrefs.SetInt("InputType", inputType);
+        PlayerPrefs.Save();
 
         isInputSelected = true;
         CheckReadyToStart();
@@ -75,6 +76,8 @@ public class LobbyUIManager : MonoBehaviour
         // matchType == 0 : AI전
         // matchType == 1 : TA (타임어택)
         PlayerPrefs.SetInt("MatchType", matchType);
+        PlayerPrefs.Save();
+
         isMatchSelected = true;
         CheckReadyToStart();
     }
@@ -104,6 +107,7 @@ public class LobbyUIManager : MonoBehaviour
     public void SelectCar(int carIndex)
     {
         PlayerPrefs.SetInt("SelectedCarIndex", carIndex);
+        PlayerPrefs.Save();
         isCarSelected = true;
 
         UpdateShowroomCar(carIndex);
